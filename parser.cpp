@@ -60,7 +60,6 @@ public:
 	bool match(context& ctx){
 		return impl->match(ctx);
 	}
-private:
 	std::shared_ptr<parse_object> impl;
 };
 parse_object_ref f_parser(std::function<bool(context& ctx)> f){
@@ -154,7 +153,7 @@ parse_object_ref ws(std::make_shared<ws_t>());
 /* 		return ret; */
 /* 	} */
 /* } */
-class print_t {
+struct print_t {
 	parse_object_ref operator()(std::string_view text){
 		return f_parser([=](auto){
 					std::cout << text << std::endl;
@@ -268,31 +267,37 @@ auto r_parser(auto in_f){
 	std::function<bool(context&,output_wraper<ARGS...>&&)> f = in_f;
 	class ret_parse_object : public parse_object_ref {
 		public:
+		std::function<bool(context&, output_wraper<ARGS...>)> inner;
 		std::function<void(ARGS...)> dest;
-		ret_parse_object& operator>>(print_t){
+		ret_parse_object operator>>(print_t){
 			std::cout << "setting dest outer" << std::endl;
 			std::cout << size_t(this) << std::endl;
-			this->dest = [](ARGS...args){
+
+			auto ret = ret_parse_object{inner};
+			ret.dest = [](ARGS...args){
 				((std::cout << std::forward<ARGS>(args)),...);
 				std::cout << std::endl;
 			};
-			return *this;
+			return ret;
 		}
-		ret_parse_object& operator>>(std::function<void(ARGS...)> dest){
+		ret_parse_object operator>>(std::function<void(ARGS...)> dest){
 			std::cout << "setting dest outer" << std::endl;
 			std::cout << size_t(this) << std::endl;
-			this->dest = dest;
-			return *this;
+			auto ret = ret_parse_object{inner};
+			ret.dest = dest;
+			return ret;
 		}
-		ret_parse_object(std::function<bool(context&,output_wraper<ARGS...>&&)> inner) : parse_object_ref(
-				f_parser([ref=this,inner = std::move(inner)](context& ctx){
-					if(!(ref->dest)){
+		ret_parse_object(std::function<bool(context&,output_wraper<ARGS...>&&)> inner) : 
+			parse_object_ref(
+				f_parser([&](context& ctx){
+					if(!dest){
 						std::cout << "setting dest" << std::endl;
-						std::cout << size_t(ref) << std::endl;
-						ref->dest = [](ARGS...){};
+						std::cout << size_t(this) << std::endl;
+						dest = [](ARGS...){};
 					}
-					return inner(ctx,output_wraper<ARGS...>{ref->dest});
-				})) 
+					return this->inner(ctx,output_wraper<ARGS...>{dest});
+				})),
+			inner(inner) 
 		{
 			std::cout << "constructing" << std::endl;
 			std::cout << size_t(this) << std::endl;
@@ -337,6 +342,67 @@ auto push(vector& vec){
 		vec->push_back(std::forward<typename vector::value_type>(value));
 	};
 };
+auto max(int val){
+	struct type {
+		int val;
+		parse_object_ref operator>>(std::string_view sv){
+			return *this >> text_parser(sv);
+		}
+		parse_object_ref operator>>(parse_object_ref inner){
+			return f_parser([=](auto& ctx) mutable {
+					for(int i = 0; i < val; ++i){
+						if(!inner.match(ctx))return true;
+					}
+					if(inner.match_or_undo((ctx)))return false;
+					return true;
+				});
+		}
+	};
+	return type{val};
+}
+auto min(int val){
+	struct type {
+		int val;
+		parse_object_ref operator>>(std::string_view sv){
+			return *this >> text_parser(sv);
+		}
+		parse_object_ref operator>>(parse_object_ref inner){
+			return f_parser([=](auto& ctx) mutable {
+					for(int i = 0; i < val; ++i){
+						if(!inner.match(ctx))return false;
+					}
+					while(inner.match_or_undo((ctx))){};
+					return true;
+				});
+		}
+	};
+	return type{val};
+}
+auto minmax(int val1, int val2){
+	struct type {
+		int val1,val2;
+		parse_object_ref operator>>(std::string_view sv){
+			return *this >> text_parser(sv);
+		}
+		parse_object_ref operator>>(parse_object_ref inner){
+			return f_parser([=](auto& ctx) mutable {
+					for(int i = 0; i < val1; ++i){
+						if(!inner.match(ctx))return false;
+					}
+					for(int i = 0; i < (val2-val1); ++i){
+						if(!inner.match_or_undo(ctx))return true;
+					}
+					if(inner.match_or_undo(ctx))return false;
+					return true;
+				});
+		}
+	};
+	return type{val1,val2};
+}
+auto exact(int val){
+	return minmax(val,val);
+}
+auto optional = max(1);
 int main(){
 	context ctx;
 	/* ctx.input = "  hey  "; */
@@ -345,7 +411,7 @@ int main(){
 	/* (((any >> "hey" + print("itter")) + eoi + print("done")) | print("fail"))(ctx); */
 	/* ctx.input="\"hey you rock\""; */
 	/* (string + print("accept") | print("fail"))(ctx); */
-	ctx.input = "-2342, 4";
+	/* ctx.input = "-2342, 4"; */
 	/* ((number ) + eoi + print("accept"))(ctx); */
 	/* ((r_parser<int>([](context&,output_wraper<int>&& output)->bool{ */
 	/* 	output << 2; */
@@ -356,10 +422,14 @@ int main(){
 	//2.concatenation of parse_obj
 	//3.modifiers
 	/* (any >> (decimal<int> >> print) + ", ")(ctx); */
-	std::vector<int> res;
+	/* std::vector<int> res; */
 	/* (decimal<int> >> push(res))(ctx); */
-	((decimal<int> >> print)+", "+(decimal<int> >> push(res)))(ctx);
-	std::cout << res.size() << std::endl;
-	for(auto x : res)std::cout << x << std::endl;
+	/* ((decimal<int> >> push(res))+", "+(decimal<int> >> print))(ctx); */
+	/* std::cout << res.size() << std::endl; */
+	/* for(auto x : res)std::cout << x << std::endl; */
+
+
+	ctx.input = "bb";
+	((optional>>"a") + print("accepted") | print("failed"))(ctx);
 	
 }
