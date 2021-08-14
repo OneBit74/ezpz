@@ -2,26 +2,37 @@
 class context {
 public:
 	std::string input;
+	bool debug = true;
 	size_t pos = 0;
+	size_t depth = 0;
+	std::unordered_map<std::string,std::regex> regex_cache;
 	char get(){
 		return input[pos];
 	}
 	bool done(){
 		return pos == input.size();
 	}
+	void indent(){
+			for(size_t i = 0; i < depth; ++i)std::cout << '\t';
+	}
 };
 class parse_object {
 public:
 	size_t start_match;
 	virtual ~parse_object() = default;
-	virtual bool match(context&) {return false;}
-	virtual void undo(context&) {};
+	virtual bool _match(context&) {return false;}
+	virtual void _undo(context&) {};
+	bool operator()(std::string_view sv){
+		context ctx;
+		ctx.input = sv;
+		return (*this)(ctx);
+	}
 	bool operator()(context& ctx){
 		return match_or_undo(ctx);
 	}
 	bool match_or_undo(context& ctx){
 		size_t start_match = ctx.pos;
-		if(_match(ctx)){
+		if(match(ctx)){
 			return true;
 		}else{
 			ctx.pos = start_match;
@@ -29,19 +40,35 @@ public:
 			return false;
 		}
 	}
-private:
-	bool _match(context& ctx){
-		return match(ctx);
+	bool match(context& ctx){
+		if(ctx.debug){
+			ctx.indent();
+			std::cout << "starting" << std::endl;
+		}
+		ctx.depth++;
+		auto prev_pos = ctx.pos;
+		auto ret = _match(ctx);
+		ctx.depth--;
+		if(ctx.debug){
+			ctx.indent();
+			if(!ret){
+				std::cout << "failed ";
+			}else{
+				std::cout << "accepted ";
+			}
+			std::cout << '\"' << std::string_view{ctx.input.begin()+prev_pos,ctx.input.begin()+ctx.pos} <<'\"' << std::endl;
+		}
+		return ret;
 	}
-	void _undo(context& ctx){
-		undo(ctx);
+	void undo(context& ctx){
+		_undo(ctx);
 	}
 };
 class f_parser_t : public parse_object {
 public:
 	std::function<bool(context&)> f;
 	f_parser_t(decltype(f) f) : f(f) {};
-	bool match(context& ctx) override {
+	bool _match(context& ctx) override {
 		return f(ctx);
 	}
 };
@@ -53,6 +80,9 @@ public:
 	}
 	bool match_or_undo(context& ctx){
 		return impl->match_or_undo(ctx);
+	}
+	bool operator()(std::string_view sv){
+		(*impl)(sv);
 	}
 	void operator()(context& ctx){
 		(*impl)(ctx);
@@ -124,7 +154,7 @@ parse_object_ref operator|(std::string_view lhs, parse_object_ref rhs){
 	return text_parser(lhs) | rhs;
 }
 class ws_t : public parse_object {
-	bool match(context& ctx){
+	bool _match(context& ctx){
 		while(!ctx.done()){
 			switch(ctx.get()){
 			case ' ':
@@ -242,7 +272,6 @@ class output_wraper{
 	output_wraper<ARGS...> operator<<(FIRST&& val){
 		return output_wraper<ARGS...>{[cb = destination,val = std::move(val)]
 			(ARGS...args){
-				std::cout << "outer" << std::endl;
 				cb(val,args...);
 			}};
 	}
@@ -255,7 +284,6 @@ class output_wraper<void> {
 	output_wraper(auto dest) : destination(dest) {};
 	~output_wraper(){
 		if(destination){
-			std::cout << "calling dest" << std::endl;
 			destination();
 		}else{
 			std::cout << "no dest";
@@ -270,8 +298,6 @@ auto r_parser(auto in_f){
 		std::function<bool(context&, output_wraper<ARGS...>)> inner;
 		std::function<void(ARGS...)> dest;
 		ret_parse_object operator>>(print_t){
-			std::cout << "setting dest outer" << std::endl;
-			std::cout << size_t(this) << std::endl;
 
 			auto ret = ret_parse_object{inner};
 			ret.dest = [](ARGS...args){
@@ -281,8 +307,6 @@ auto r_parser(auto in_f){
 			return ret;
 		}
 		ret_parse_object operator>>(std::function<void(ARGS...)> dest){
-			std::cout << "setting dest outer" << std::endl;
-			std::cout << size_t(this) << std::endl;
 			auto ret = ret_parse_object{inner};
 			ret.dest = dest;
 			return ret;
@@ -291,16 +315,12 @@ auto r_parser(auto in_f){
 			parse_object_ref(
 				f_parser([&](context& ctx){
 					if(!dest){
-						std::cout << "setting dest" << std::endl;
-						std::cout << size_t(this) << std::endl;
 						dest = [](ARGS...){};
 					}
 					return this->inner(ctx,output_wraper<ARGS...>{dest});
 				})),
 			inner(inner) 
 		{
-			std::cout << "constructing" << std::endl;
-			std::cout << size_t(this) << std::endl;
 		}
 	};
 	return ret_parse_object{f};
@@ -351,9 +371,8 @@ auto max(int val){
 		parse_object_ref operator>>(parse_object_ref inner){
 			return f_parser([=](auto& ctx) mutable {
 					for(int i = 0; i < val; ++i){
-						if(!inner.match(ctx))return true;
+						if(!inner.match_or_undo(ctx))return true;
 					}
-					if(inner.match_or_undo((ctx)))return false;
 					return true;
 				});
 		}
@@ -392,7 +411,6 @@ auto minmax(int val1, int val2){
 					for(int i = 0; i < (val2-val1); ++i){
 						if(!inner.match_or_undo(ctx))return true;
 					}
-					if(inner.match_or_undo(ctx))return false;
 					return true;
 				});
 		}
@@ -402,7 +420,24 @@ auto minmax(int val1, int val2){
 auto exact(int val){
 	return minmax(val,val);
 }
-auto optional = max(1);
+auto re_match(std::string_view pattern){
+	return r_parser<std::string_view>([=](auto& ctx,auto&& output){
+		const std::string str{pattern};
+		auto [regex_iter,b] = ctx.regex_cache.try_emplace(str,str);
+		std::smatch match;
+		const auto& c_input = ctx.input;
+		std::regex_search(c_input.begin()+ctx.pos,c_input.end(),match,regex_iter->second);
+		if(match.empty())return false;
+		if(match.position() != 0)return false;
+		auto ret = std::string_view{
+			c_input.begin() + ctx.pos,
+			c_input.begin() + ctx.pos + match.length()
+		};
+		output << ret;
+		ctx.pos += match.position();
+		return true;
+	});
+}
 int main(){
 	context ctx;
 	/* ctx.input = "  hey  "; */
@@ -411,7 +446,7 @@ int main(){
 	/* (((any >> "hey" + print("itter")) + eoi + print("done")) | print("fail"))(ctx); */
 	/* ctx.input="\"hey you rock\""; */
 	/* (string + print("accept") | print("fail"))(ctx); */
-	/* ctx.input = "-2342, 4"; */
+	ctx.input = "-2342, 4";
 	/* ((number ) + eoi + print("accept"))(ctx); */
 	/* ((r_parser<int>([](context&,output_wraper<int>&& output)->bool{ */
 	/* 	output << 2; */
@@ -421,7 +456,7 @@ int main(){
 	//1.output
 	//2.concatenation of parse_obj
 	//3.modifiers
-	/* (any >> (decimal<int> >> print) + ", ")(ctx); */
+	(any >> (decimal<int> >> print) + ", ")(ctx);
 	/* std::vector<int> res; */
 	/* (decimal<int> >> push(res))(ctx); */
 	/* ((decimal<int> >> push(res))+", "+(decimal<int> >> print))(ctx); */
@@ -429,7 +464,8 @@ int main(){
 	/* for(auto x : res)std::cout << x << std::endl; */
 
 
-	ctx.input = "bb";
-	((optional>>"a") + print("accepted") | print("failed"))(ctx);
+	/* ctx.input = "bb"; */
+	/* ((optional>>"a") + print("accepted") | print("failed"))(ctx); */
+	/* (((re_match("ab*c") >> print) + print("accepted")) | print("failed"))("abbdbc"); */
 	
 }
