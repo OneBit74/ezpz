@@ -10,15 +10,24 @@ add_compile_options(
 	)
 set(CMAKE_CXX_STANDARD 20)
 
+
+
 find_package(fmt REQUIRED)
 include_directories(fmt)
 
-add_executable(ezp
+add_library(ezpz
 	src/context.cpp
+	src/quantifiers.cpp
+	src/parse_object.cpp
+	src/matcher.cpp
+	src/helper.cpp)
+target_link_libraries(ezpz fmt)
+
+add_executable(main
 	src/parser.cpp)
-target_link_libraries(ezp fmt)
+target_link_libraries(main fmt ezpz)
 
 find_package(GTest REQUIRED)
 add_executable(stest
 	src/test.cpp)
-target_link_libraries(stest fmt ${GTEST_BOTH_LIBRARIES})
+target_link_libraries(stest fmt ${GTEST_BOTH_LIBRARIES} ezpz)
