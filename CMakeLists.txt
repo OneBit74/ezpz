@@ -14,4 +14,11 @@ find_package(fmt REQUIRED)
 include_directories(fmt)
 
 add_executable(ezp
+	src/context.cpp
 	src/parser.cpp)
+target_link_libraries(ezp fmt)
+
+find_package(GTest REQUIRED)
+add_executable(stest
+	src/test.cpp)
+target_link_libraries(stest fmt ${GTEST_BOTH_LIBRARIES})

@@ -1,21 +1,7 @@
 #include <bits/stdc++.h>
-class context {
-public:
-	std::string input;
-	bool debug = true;
-	size_t pos = 0;
-	size_t depth = 0;
-	std::unordered_map<std::string,std::regex> regex_cache;
-	char get(){
-		return input[pos];
-	}
-	bool done(){
-		return pos == input.size();
-	}
-	void indent(){
-		for(size_t i = 0; i < depth; ++i)std::cout << '\t';
-	}
-};
+#include <fmt/core.h>
+#include "context.hpp"
+
 class parse_object {
 public:
 	std::string comment;
@@ -57,7 +43,7 @@ public:
 			std::cout << std::endl;
 			ctx.indent();
 			std::cout << "          ";
-			for(int i = start_pos; i <= end_pos; ++i){
+			for(size_t i = start_pos; i <= end_pos; ++i){
 				std::cout << (i == ctx.pos ? '^' : ' ');
 			}
 			std::cout << std::endl;
@@ -159,36 +145,38 @@ class ret_parse_object : public parse_object_ref {
 	std::function<void(ARGS...)> dest;
 	ret_parse_object operator>>(print_t){
 
-		auto ret = ret_parse_object{inner};
+		auto ret = ret_parse_object{inner,false,""};
 		ret.dest = [](ARGS...args){
 			((std::cout << std::forward<ARGS>(args)),...);
 			std::cout << std::endl;
 		};
 		return ret;
 	}
-	ret_parse_object operator>>(std::function<void(ARGS...)> dest){
-		auto ret = ret_parse_object{inner};
-		ret.dest = dest;
-		return ret;
+	ret_parse_object& operator>>(std::function<void(ARGS...)> dest){
+		/* auto ret = ret_parse_object{inner,false,""}; */
+		/* ret.dest = dest; */
+		/* return ret; */
+		this->dest = dest;//bug this object is a factory
+		return *this;
 	}
-	ret_parse_object(std::function<bool(context&,output_wraper<ARGS...>&&)> inner) : 
+	ret_parse_object(std::function<bool(context&,output_wraper<ARGS...>&&)> inner, bool dbg_inline, std::string comment) : 
 		parse_object_ref(
 			f_parser([&](context& ctx){
 				if(!dest){
 					dest = [](ARGS...){};
 				}
 				return this->inner(ctx,output_wraper<ARGS...>{dest});
-			})),
+			},dbg_inline,comment)),
 		inner(inner) 
 	{
 	}
 };
 template<typename...ARGS>
-auto r_parser(std::invocable<context&,output_wraper<ARGS...>&&> auto in_f){
+auto r_parser(std::invocable<context&,output_wraper<ARGS...>&&> auto in_f, bool dbg_inline = false, const std::string& comment = ""){
 	std::function<bool(context&,output_wraper<ARGS...>&&)> f = in_f;
-	return ret_parse_object<ARGS...>{f};
+	return ret_parse_object<ARGS...>{f,dbg_inline,comment};
 }
-auto r_parser(std::invocable<context&> auto in_f){
+auto r_parser(std::invocable<context&> auto in_f, bool dbg_inline = false, std::string comment = ""){
 	std::function<bool(context&)> f = in_f;
 	return r_parser<std::string_view>([=](context& ctx,output_wraper<std::string_view>&& output) -> bool{
 		int start_pos = ctx.pos;
@@ -197,7 +185,7 @@ auto r_parser(std::invocable<context&> auto in_f){
 			output << std::string_view{ctx.input.begin()+start_pos,ctx.input.begin()+ctx.pos};
 		}
 		return success;
-	});
+	},dbg_inline,comment);
 }
 template<typename T>
 auto assign(T& target){
@@ -211,11 +199,11 @@ parse_object_ref text_parser(std::string_view sv){
 			for(char c : sv){
 				if(ctx.done())return false;
 				char i = ctx.get();
-				++ctx.pos;
 				if(i != c)return false;
+				++ctx.pos;
 			}
 			return true;
-		}
+		},false,fmt::format("text \"{}\"",sv)
 	);
 }
 parse_object_ref operator+(parse_object_ref lhs, parse_object_ref rhs){
@@ -244,6 +232,10 @@ parse_object_ref operator|(std::string_view lhs, parse_object_ref rhs){
 	return text_parser(lhs) | rhs;
 }
 class ws_t : public parse_object {
+public:
+	ws_t() {
+		comment = "whitespace";
+	}
 	bool _match(context& ctx){
 		while(!ctx.done()){
 			switch(ctx.get()){
@@ -376,8 +368,10 @@ auto& decimal = number<integer,10>;
 //new f_parser feeds destinations to old rf_parser
 template<typename vector>
 auto push(vector& vec){
-	return [vec = &vec](typename vector::value_type&& value){
-		vec->push_back(std::forward<typename vector::value_type>(value));
+	static_assert(!std::is_const_v<vector>,"fail");
+	static int counter = 0;
+	return [&vec=vec,i = ++counter](typename vector::value_type&& value){
+		vec.push_back(std::forward<typename vector::value_type>(value));
 	};
 };
 auto max(int val){
@@ -387,7 +381,7 @@ auto max(int val){
 			return *this >> text_parser(sv);
 		}
 		parse_object_ref operator>>(parse_object_ref inner){
-			return f_parser([=](auto& ctx) mutable {
+			return f_parser([=,this](auto& ctx) mutable {
 					for(int i = 0; i < val; ++i){
 						if(!inner.match_or_undo(ctx))return true;
 					}
@@ -404,7 +398,7 @@ auto min(int val){
 			return *this >> text_parser(sv);
 		}
 		parse_object_ref operator>>(parse_object_ref inner){
-			return f_parser([=](auto& ctx) mutable {
+			return f_parser([=,this](auto& ctx) mutable {
 					for(int i = 0; i < val; ++i){
 						if(!inner.match(ctx))return false;
 					}
@@ -422,7 +416,7 @@ auto minmax(int val1, int val2){
 			return *this >> text_parser(sv);
 		}
 		parse_object_ref operator>>(parse_object_ref inner){
-			return f_parser([=](auto& ctx) mutable {
+			return f_parser([=,this](auto& ctx) mutable {
 					for(int i = 0; i < val1; ++i){
 						if(!inner.match(ctx))return false;
 					}
@@ -451,10 +445,10 @@ auto until(std::string_view pattern){
 			c_input.begin() + ctx.pos,
 			c_input.begin() + ctx.pos + match.length()
 		};
-		ctx.pos += match.length();
+		/* ctx.pos += match.length(); */
 		output << ret;
 		return true;
-	});
+	},false,fmt::format("until \"{}\"",pattern));
 }
 auto match(std::string_view pattern){
 	return r_parser<std::string_view>([=](auto& ctx,auto&& output){
@@ -470,18 +464,18 @@ auto match(std::string_view pattern){
 			c_input.begin() + ctx.pos + match.length()
 		};
 		output << ret;
-		ctx.pos += match.position();
+		ctx.pos += match.length();
 		return true;
-	});
+	},false,fmt::format("matching \"{}\"",pattern));
 }
 auto text(std::string_view& sv){
 	return f_parser([&](context& ctx){
-		for(int i = 0; i < sv.size(); ++i){
+		for(size_t i = 0; i < sv.size(); ++i){
 			if(sv[i] != ctx.get())return false;
 			++ctx.pos;
 		}
 		return true;
-	});
+	},false,"dynamic text");
 }
 int main(){
 	context ctx;
@@ -515,6 +509,7 @@ int main(){
 
 	//output composition decimal<int> + ", "+ decimal<int> >> print >> print
 	
+	(match("abc") + print("accepted"))("abc");
 
 	struct node {
 		std::string_view name;
@@ -523,18 +518,24 @@ int main(){
 	};
 	ret_parse_object<node> xml_node = r_parser<node>([&](auto& ctx,auto&& output){
 		node ret;
+
 		if((
-			"<"+ws+(match("\\w+") >> assign(ret.name)) + ws +">"+
+			"<"+ws+(match("\\w+") >> assign(ret.name)) + ws +">"+ws+
 			(
-				(any >> (xml_node >> push(ret.children))) |
-				(until("</") >> assign(ret.text_content))) +
-			"</"+ws+text(ret.name)+ws+">")(ctx)){
+				(min(1) >> (xml_node >> push(ret.children))) |
+				(until("</") >> assign(ret.text_content))
+			) +
+			ws + "</"+ws+text(ret.name)+ws+">")(ctx)){
 
 			output << ret;
 			return true;
 		}
 		return false;
-	});
+	},false,"xml_node");
 	node root;
-	(xml_node >> assign(root))("<hey></hey>");
+	ctx.input = "<hey><p>you suck </p><b>big time! </b></hey>";
+	(xml_node >> assign(root))(ctx);
+	std::cout << root.name << std::endl;
+	std::cout << root.children.size() << std::endl;
+	for(auto& child : root.children)std::cout << "child: " <<  child.name << std::endl;
 }
