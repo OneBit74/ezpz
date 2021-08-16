@@ -95,6 +95,7 @@ int main(){
 		return false;
 	},false,"xml_node");
 	node root;
+	ctx.debug = true;
 	ctx.input = "<hey><p>you suck </p><b>big time! </b></hey>";
 	(xml_node >> assign(root))(ctx);
 	std::cout << root.name << std::endl;

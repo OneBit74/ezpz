@@ -21,3 +21,9 @@ auto assign(T& target){
 		target = std::forward<T>(t);
 	};
 }
+template<typename T>
+auto assign(T& target, T value){
+	return [&,value](){
+		target = value;
+	};
+}

@@ -46,12 +46,12 @@ class ret_parse_object : public parse_object_ref {
 		};
 		return ret;
 	}
-	ret_parse_object& operator>>(std::function<void(ARGS...)> dest){
-		/* auto ret = ret_parse_object{inner,false,""}; */
-		/* ret.dest = dest; */
-		/* return ret; */
-		this->dest = dest;//bug this object is a factory
-		return *this;
+	ret_parse_object operator>>(std::function<void(ARGS...)> dest){
+		auto ret = ret_parse_object{inner,false,""};
+		ret.dest = dest;
+		return ret;
+		/* this->dest = dest;//bug this object is a factory */
+		/* return *this; */
 	}
 	ret_parse_object(std::function<bool(context&,output_wraper<ARGS...>&&)> inner, bool dbg_inline, std::string comment) : 
 		parse_object_ref(

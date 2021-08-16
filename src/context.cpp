@@ -1,6 +1,7 @@
 #include "context.hpp"
 #include <iostream>
 
+context::context(std::string str) : input(std::move(str)) {}
 char context::get(){
 	return input[pos];
 }
