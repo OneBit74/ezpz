@@ -8,7 +8,7 @@ ret_parse_object<std::string_view> match(std::string_view pattern);
 ret_parse_object<std::string_view> until(std::string_view pattern);
 
 auto text_parser(std::string_view sv) -> parse_object_ref;
-auto text(std::string_view& sv) -> parse_object_ref;
+auto text(const std::string_view& sv) -> parse_object_ref;
 
 inline auto ws = f_parser([](context& ctx){
 	while(!ctx.done()){

@@ -1,7 +1,7 @@
 #include "matcher.hpp"
 #include <fmt/core.h>
 
-parse_object_ref text(std::string_view& sv){
+parse_object_ref text(const std::string_view& sv){
 	return f_parser([&](context& ctx){
 		for(size_t i = 0; i < sv.size(); ++i){
 			if(sv[i] != ctx.get())return false;

@@ -17,6 +17,10 @@ TEST(ezpz,match){
 	EXPECT_TRUE(parser("123"));
 	EXPECT_TRUE(parser(""));
 }
+TEST(ezpz,parse_object_construction){
+	parse_object po;
+	parse_object po2 = po;
+}
 TEST(ezpz,done){
 	context ctx;
 	EXPECT_TRUE(ctx.done());
@@ -80,5 +84,11 @@ RC_GTEST_PROP(ezpz,decimal_parse_identity,(long long val)){
 	long long parsed = -1;
 	(decimal<long long> >> assign(parsed))(ctx);
 	RC_ASSERT(val == parsed);
+	RC_ASSERT(ctx.done());
+}
+RC_GTEST_PROP(ezpz,text_parse_identity,(std::string s)){
+	context ctx;
+	ctx.input = s;
+	RC_ASSERT(text(s)(ctx));
 	RC_ASSERT(ctx.done());
 }

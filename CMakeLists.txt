@@ -15,11 +15,12 @@ include_directories(${rapidcheck_SOURCE_DIR}/extras/gtest/include)
 
 add_compile_options(
 	"-Wall" "-Wpedantic" "-Wextra" "-fexceptions" "-fopenmp" "-fconcepts-diagnostics-depth=20"
+	"$<$<CONFIG:DEBUG>:-O0;-g3;-ggdb;-ftrapv;-fbounds-check;-fsanitize=undefined>"
 	"$<$<CONFIG:RELEASE>:-O3>"
-	"$<$<CONFIG:DEBUG>:-O0;-g3;-ggdb;-ftrapv;-fbounds-check;-fsanitize=undefined;-fsanitize-undefined-trap-on-error>"
 	)
 set(CMAKE_CXX_STANDARD 20)
 
+link_libraries(ubsan)
 
 
 find_package(fmt REQUIRED)
@@ -32,6 +33,9 @@ add_library(ezpz
 	src/matcher.cpp
 	src/helper.cpp)
 target_link_libraries(ezpz fmt)
+
+add_executable(redone src/redone.cpp)
+target_link_libraries(redone ezpz)
 
 add_executable(main
 	src/parser.cpp)

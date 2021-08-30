@@ -7,8 +7,7 @@
 class parse_object {
 public:
 	std::string comment;
-	bool dbg_inline;
-	size_t start_match;
+	bool dbg_inline = false;
 
 	virtual ~parse_object() = default;
 	virtual bool _match(context&);
