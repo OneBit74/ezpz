@@ -1,4 +1,5 @@
 #include "parse_object.hpp"
+#include "matcher.hpp"
 #include <iostream>
 
 template<bool b, typename TRUE, typename FALSE>
@@ -208,6 +209,24 @@ struct reverse_list<TLIST<EOL>,ARGS...> {
 	using type = TLIST<ARGS...>;
 };
 template<typename FIRST=void, typename ... ARGS>
+struct hold_normal {
+	FIRST first;
+	hold_normal<ARGS...> rest;
+
+	template<typename F, typename ... OARGS>
+	auto apply(F&& f, OARGS&&...oargs){
+		return rest.apply(f,oargs...,first);
+	}
+};
+template<>
+struct hold_normal<void>{
+	template<typename F, typename ...OARGS>
+	auto apply(F&&f, OARGS&&...oargs){
+		/* print_types<F,OARGS...> fds; */
+		return f(oargs...);
+	}
+};
+template<typename FIRST=void, typename ... ARGS>
 struct hold {
 	FIRST first;
 	hold<ARGS...> rest;
@@ -234,9 +253,25 @@ struct f_wrapper : public F {
 	f_wrapper(F&& f) : F(std::forward<F>(f)) {};
 };
 
+/* template<typename L,typename...ARGS> */
+/* struct create_r_parser_with_unparsed_args { */
+/* 	using type = */ 
+/* 		typename create_r_parser_with_unparsed_args< */
+/* 		typename L::rest, */
+/* 		typename L::type,ARGS...>::type; */
+/* }; */
+/* template<typename...ARGS> */
+/* struct create_r_parser_with_unparsed_args<TLIST<EOL>,ARGS...> { */
+/* 	bool parse(context& ctx, ARGS...args); */
+/* }; */
+struct active_t;
+struct active_f;
+
 template<typename unp = VOID, typename REM = VOID, typename ... UNPARSED>
 struct nr_parser : public parse_object {
 	using self_t = nr_parser<unp,REM,UNPARSED...>;
+	using UNPARSED_LIST = TLIST<UNPARSED...>;
+	using active = active_f;
 
 	REM parent;
 	unp f;
@@ -275,30 +310,150 @@ struct nr_parser : public parse_object {
 		hold_type h;
 		return h.apply([&](UNPARSED&...u_args){return parse(ctx,u_args...);});
 	}
-	template<typename F>
-	auto operator*(F&& unparser) && {
-		/* static_assert(std::is_invocable_v<F,int>,"yes"); */
-		using invoke_info = invoke_list<F,TLIST<UNPARSED&...>>;
-		using invoke_args = typename invoke_info::args;
-		/* using invoke_ret = typename invoke_info::ret; */
-		/* print_types<invoke_args> asd; */
-		using remaining_types = 
-			typename pop_n<list_size<invoke_args>::value,TLIST<UNPARSED...>>::type;
-		/* print_types<remaining_types> asd1; */
-		using F_TYPE = f_wrapper<F,typename invoke_info::ret,typename invoke_info::args>;
-		using ret_args = 
-			typename append_list<TLIST<F_TYPE,self_t>,remaining_types>::type;
-		/* print_types<ret_args> asd2; */
-		using ret_type = 
-			typename apply_list<nr_parser,ret_args>::type;
-		return ret_type(std::forward<F>(unparser),std::move(*this));
-				/* nr_parser<decltype(unparser),self_t,RET>, */
-				/* args_size, */
-				/* UNPARSED...>::type; */
+};
+template<typename...A1,typename...A2>
+auto create_join_parser(auto&& p1, auto&& p2, TLIST<A1...>,TLIST<A2...>){
+	using P1 = std::decay_t<decltype(p1)>;
+	using P2 = std::decay_t<decltype(p2)>;
+	if constexpr (std::is_same_v<TLIST<A2...>,TLIST<EOL>>){
+		using parent_t = nr_parser<VOID,VOID,A1...>;
+		struct join_p : public parent_t {
+			P1 p1;
+			P2 p2;
+			join_p(P1&& p1, P2&& p2) :
+				parent_t({},{}),
+				p1(std::forward<P1>(p1)),
+				p2(std::forward<P2>(p2))
+			{}
+			bool parse(context& ctx,A1&...a1) {
+				return p1.parse(ctx,a1...) && p2._match(ctx);
+			}
+			bool _match(context& ctx) override {
+				hold_normal<A1...> h;
+				return h.apply([self=this](context& ctx,A1&...a1) mutable {
+						return self->parse(ctx,a1...);
+					},ctx);
+			}
+		};
+		return join_p{std::forward<P1>(p1),std::forward<P2>(p2)};
+	}else if constexpr( std::is_same_v<TLIST<A1...>,TLIST<EOL>>){
+		using parent_t = nr_parser<VOID,VOID,A2...>;
+		struct join_p : public parent_t {
+			P1 p1;
+			P2 p2;
+			join_p(P1&& p1, P2&& p2) :
+				parent_t({},{}),
+				p1(std::forward<P1>(p1)),
+				p2(std::forward<P2>(p2))
+			{}
+			bool parse(context& ctx,A2&...a2) {
+				return p1._match(ctx) && p2.parse(ctx,a2...);
+			}
+			bool _match(context& ctx) override {
+				hold_normal<A2...> h;
+				return h.apply([self=this](context& ctx,A2&...a2) mutable {
+						return self->parse(ctx,a2...);
+					},ctx);
+			}
+		};
+		return join_p{std::forward<P1>(p1),std::forward<P2>(p2)};
+	}else{
+		using parent_t = nr_parser<VOID,VOID,A1...,A2...>;
+		struct join_p : public parent_t {
+			P1 p1;
+			P2 p2;
+			join_p(P1&& p1, P2&& p2) :
+				parent_t({},{}),
+				p1(std::forward<P1>(p1)),
+				p2(std::forward<P2>(p2))
+			{}
+			bool parse(context& ctx,A1&...a1,A2&...a2) {
+				return p1.parse(ctx,a1...) && p2.parse(ctx,a2...);
+			}
+			bool _match(context& ctx) override {
+				hold_normal<A1...,A2...> h;
+				std::cout << "here" << std::endl;
+				return h.apply([self=this](context& ctx,A1&...a1,A2&...a2) mutable {
+						return self->parse(ctx,a1...,a2...);
+					},ctx);
+		
+			}
+		};
+		return join_p{std::forward<P1>(p1),std::forward<P2>(p2)};
+	}
 
-				/* (unparser,std::move(*this)); */
+}
+
+
+template<typename parser>
+struct activated_parser : public parser {
+	using active = active_t;
+	activated_parser(parser&& self) : parser(self) {};
+};
+
+template<typename UNP, typename REM, typename ...UNPARSED>
+auto operator!(nr_parser<UNP,REM,UNPARSED...>&& nr) {
+	using self_t = nr_parser<UNP,REM,UNPARSED...>;
+	return activated_parser<self_t>(std::forward<self_t>(nr));
+}
+template<typename parser>
+struct forget : public parser {
+	using UNPARSED_LIST = TLIST<EOL>;
+
+	forget(parser&& p) : parser(std::forward<parser>(p)) {};
+	
+	bool parse(context& ctx, EOL&){
+		return parser::_match(ctx);
 	}
 };
+
+template<typename P1, typename P2>
+auto operator+(P1&& p1, P2&& p2){
+	if constexpr( std::is_same_v<std::decay_t<P2>,const char*> ){
+		return p1 + text_parser(p2);
+	}if constexpr(std::is_same_v<active_t,typename P1::active> && std::is_same_v<active_t,typename P2::active>){
+		return create_join_parser(p1,p2,typename P1::UNPARSED_LIST{},typename P2::UNPARSED_LIST{});
+	}if constexpr(std::is_same_v<active_t,typename P1::active> && !std::is_same_v<active_t,typename P2::active>){
+		return create_join_parser(p1,
+				forget{std::forward<P2>(p2)},
+				typename P1::UNPARSED_LIST{},
+				TLIST<EOL>{});
+	}if constexpr(!std::is_same_v<active_t,typename P1::active> && std::is_same_v<active_t,typename P2::active>){
+		return create_join_parser(
+				forget{std::forward<P1>(p1)},
+				p2,
+				TLIST<EOL>{},
+				typename P2::UNPARSED_LIST{});
+	} else {
+		/* return f_parser([first = std::forward<P1>(p1),second=std::forward<P2>(p2)] */ 
+		/* (auto& ctx) mutable { */
+		/* 	return first.match(ctx) && second.match(ctx); */
+		/* }); */
+	}
+}
+template<typename P, typename F>
+auto operator*(P&& p, F&& unparser) {
+	/* static_assert(std::is_invocable_v<F,int>,"yes"); */
+	using invoke_info = invoke_list<F,typename get_ref_list<typename P::UNPARSED_LIST>::type>;
+	using invoke_args = typename invoke_info::args;
+	/* using invoke_ret = typename invoke_info::ret; */
+	/* print_types<invoke_args> asd; */
+	using remaining_types = 
+		typename pop_n<list_size<invoke_args>::value,typename P::UNPARSED_LIST>::type;
+	/* print_types<remaining_types> asd1; */
+	using F_TYPE = f_wrapper<F,typename invoke_info::ret,typename invoke_info::args>;
+	using ret_args = 
+		typename append_list<TLIST<F_TYPE,P>,remaining_types>::type;
+	/* print_types<ret_args> asd2; */
+	using ret_type = 
+		typename apply_list<nr_parser,ret_args>::type;
+	return ret_type(std::forward<F>(unparser),std::move(p));
+			/* nr_parser<decltype(unparser),self_t,RET>, */
+			/* args_size, */
+			/* UNPARSED...>::type; */
+
+			/* (unparser,std::move(*this)); */
+}
 /* print_types<invoke_list<std::function<void(int,int)>,TLIST<int,int>>> dfhskf; */
 static_assert(std::is_same_v<invoke_list<std::function<void(int&,int&)>,TLIST<int&,int&>>::args,TLIST<int&,int&>>);
 template<typename ... ARGS>
@@ -322,19 +477,36 @@ int main(){
 	/* }; */
 	/* auto next = std::move(p) * [](int,std::string_view){}; */
 	context ctx;
+	ctx.input = "hallo";
 	/* next.parse(ctx); */
-	auto test = fr_parser<std::string_view,int>([](context&,std::string_view& i,int& s){ 
-			i="Hello, World!";
-			s = 24;
-			return true;}) *
-		/* [](std::string_view& sv){ */
-		/* 	std::cout << sv << std::endl; */
-		/* }; */
-		/* [](std::string_view&){}* */
+	/* auto test = fr_parser<std::string_view,int>([](context&,std::string_view& i,int& s){ */ 
+	/* 		i="Hello, World!"; */
+	/* 		s = 24; */
+	/* 		return true;}) * */
+	/* 	[](auto&...args){ */
+	/* 		((std::cout << args << ' '),...); */
+	/* 		std::cout << std::endl; */
+	/* 	}; */
+	auto test = (
+			!fr_parser<int>([](context&, int& i){
+				i = 2;
+				return true;
+			}) 
+			+
+			!fr_parser<int>([](context&, int& i){
+				i = 3;
+				return true;
+			}) 
+			)
+	*
 		[](auto&...args){
 			((std::cout << args << ' '),...);
 			std::cout << std::endl;
 		};
-
+	/* print_types<decltype(test)> asd; */
 	test(ctx);
+
+	/* std::cout << ctx.pos << std::endl; */
+	/* test(ctx); */
+	/* std::cout << ctx.pos << std::endl; */
 }
