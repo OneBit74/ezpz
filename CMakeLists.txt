@@ -14,7 +14,7 @@ include_directories(${rapidcheck_SOURCE_DIR}/extras/gtest/include)
 
 
 add_compile_options(
-	"-Wall" "-Wpedantic" "-Wextra" "-fexceptions" "-fopenmp" "-fconcepts-diagnostics-depth=20"
+	"-Wall" "-Wpedantic" "-Wno-unused-local-typedefs" "-Wextra" "-fexceptions" "-fopenmp" "-fconcepts-diagnostics-depth=20"
 	"$<$<CONFIG:DEBUG>:-O0;-g3;-ggdb;-ftrapv;-fbounds-check;-fsanitize=undefined>"
 	"$<$<CONFIG:RELEASE>:-O3>"
 	)
@@ -28,7 +28,7 @@ include_directories(fmt)
 
 add_library(ezpz
 	src/context.cpp
-	src/quantifiers.cpp
+	# src/quantifiers.cpp
 	src/parse_object.cpp
 	src/matcher.cpp
 	src/helper.cpp)

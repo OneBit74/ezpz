@@ -2,7 +2,14 @@
 #include "parse_object.hpp"
 
 inline struct print_t {
-	parse_object_ref operator()(std::string_view text);
+	static void print_text(std::string_view sv);
+	parser auto  operator()(std::string_view text){
+		auto ret =  f_parser([=](auto){
+					print_text(text);
+					return true;
+				},true);
+		return ret;
+	};
 } print;
-inline parse_object_ref fail = f_parser([](auto){return false;});
-inline parse_object_ref eoi = f_parser([](context& ctx){return ctx.done();});
+inline parser auto fail = f_parser([](auto){return false;});
+inline parser auto eoi = f_parser([](context& ctx){return ctx.done();});
