@@ -42,32 +42,32 @@ inline auto graph_letter = r_parser([](context& ctx){
 });
 inline auto string = "\"" + (any >> (not_v >> "\"")) + "\"";
 
-template<typename integer, int base>
-auto number = r_parser<integer>([](context& ctx, auto&& output){
-	static_assert(base <= 10);
-	static_assert(base >= 2);
-	if(ctx.done())return false;
-	bool negative = false;
-	if(ctx.get() == '-'){
-		negative = true;
-		++ctx.pos;
-	}else if(ctx.get() == '+'){
-		++ctx.pos;
-	}
-	if(ctx.done())return false;
-	integer ret = 0;
-	bool invalid = true;
-	while(!ctx.done() && std::isdigit(ctx.get())){
-		invalid = false;
-		ret *= base;
-		ret += ctx.get()-'0';
-		++ctx.pos;
-	}
-	if(invalid)return false;
-	if(negative)ret = -ret;
-	output << ret;
-	return true;
-});
-template<typename integer>
-auto& decimal = number<integer,10>;
+/* template<typename integer, int base> */
+/* auto number = r_parser<integer>([](context& ctx, auto&& output){ */
+/* 	static_assert(base <= 10); */
+/* 	static_assert(base >= 2); */
+/* 	if(ctx.done())return false; */
+/* 	bool negative = false; */
+/* 	if(ctx.get() == '-'){ */
+/* 		negative = true; */
+/* 		++ctx.pos; */
+/* 	}else if(ctx.get() == '+'){ */
+/* 		++ctx.pos; */
+/* 	} */
+/* 	if(ctx.done())return false; */
+/* 	integer ret = 0; */
+/* 	bool invalid = true; */
+/* 	while(!ctx.done() && std::isdigit(ctx.get())){ */
+/* 		invalid = false; */
+/* 		ret *= base; */
+/* 		ret += ctx.get()-'0'; */
+/* 		++ctx.pos; */
+/* 	} */
+/* 	if(invalid)return false; */
+/* 	if(negative)ret = -ret; */
+/* 	output << ret; */
+/* 	return true; */
+/* }); */
+/* template<typename integer> */
+/* auto& decimal = number<integer,10>; */
 

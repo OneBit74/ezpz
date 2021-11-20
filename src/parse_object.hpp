@@ -1,4 +1,5 @@
 #pragma once
+#include "meta.hpp"
 #include "context.hpp"
 #include <string>
 #include <string_view>
@@ -6,6 +7,9 @@
 
 class parse_object {
 public:
+	using active = active_f;
+	using UNPARSED_LIST = TLIST<EOL>;
+
 	std::string comment;
 	bool dbg_inline = false;
 
@@ -18,14 +22,25 @@ public:
 	bool match_or_undo(context& ctx);
 	bool match(context& ctx);
 	void undo(context& ctx);
+
+	size_t dbg_log_enter(context&);
+	void dbg_log_leave(context&);
+	void dbg_log_comment(context&,size_t);
 };
-class parse_object_ref {
+class parse_object_ref : public parse_object {
 public:
+	using active = active_f;
+	using UNPARSED_LIST = TLIST<EOL>;
+
 	parse_object_ref(std::shared_ptr<parse_object> ptr);
+
+	bool _match(context&) override;
+	void _undo(context&) override;
 	bool match_or_undo(context& ctx);
 	bool operator()(std::string_view sv);
 	bool operator()(context& ctx);
 	bool match(context& ctx);
+
 	std::shared_ptr<parse_object> impl;
 };
 class f_parser_t : public parse_object {

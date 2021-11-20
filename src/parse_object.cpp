@@ -24,38 +24,47 @@ bool parse_object::match_or_undo(context& ctx){
 }
 bool parse_object::match(context& ctx){
 	if(ctx.debug && !dbg_inline){
-		ctx.indent();
-		std::cout << "starting ";
-		constexpr int lo = 7;
-		constexpr size_t ro = 7;
-		auto start_pos = std::max(0,int(ctx.pos)-lo);
-		auto end_pos = std::min(ctx.input.size(),ctx.pos+ro);
-		std::cout << '\"';
-		std::cout << std::string_view{ctx.input.begin()+start_pos, ctx.input.begin()+end_pos};
-		std::cout << '\"';
-		std::cout << " " << comment;
-		std::cout << std::endl;
-		ctx.indent();
-		std::cout << "          ";
-		for(size_t i = start_pos; i <= end_pos; ++i){
-			std::cout << (i == ctx.pos ? '^' : ' ');
-		}
-		std::cout << std::endl;
-		ctx.depth++;
-		auto prev_pos = ctx.pos;
+		auto prev_pos = dbg_log_enter(ctx);
 		auto ret = _match(ctx);
-		ctx.depth--;
-		ctx.indent();
+		dbg_log_leave(ctx);
 		if(!ret){
 			std::cout << "failed ";
 		}else{
 			std::cout << "accepted ";
 		}
-		std::cout << '\"' << std::string_view{ctx.input.begin()+prev_pos,ctx.input.begin()+ctx.pos} <<'\"' << std::endl;
+		dbg_log_comment(ctx,prev_pos);
 		return ret;
 	}else{
 		return _match(ctx);
 	}
+}
+void parse_object::dbg_log_comment(context& ctx, size_t prev_pos){
+	std::cout << '\"' << std::string_view{ctx.input.begin()+prev_pos,ctx.input.begin()+ctx.pos} <<'\"' << std::endl;
+}
+size_t parse_object::dbg_log_enter(context& ctx){
+	ctx.indent();
+	std::cout << "starting ";
+	constexpr int lo = 7;
+	constexpr size_t ro = 7;
+	auto start_pos = std::max(0,int(ctx.pos)-lo);
+	auto end_pos = std::min(ctx.input.size(),ctx.pos+ro);
+	std::cout << '\"';
+	std::cout << std::string_view{ctx.input.begin()+start_pos, ctx.input.begin()+end_pos};
+	std::cout << '\"';
+	std::cout << " " << comment;
+	std::cout << std::endl;
+	ctx.indent();
+	std::cout << "          ";
+	for(size_t i = start_pos; i <= end_pos; ++i){
+		std::cout << (i == ctx.pos ? '^' : ' ');
+	}
+	std::cout << std::endl;
+	ctx.depth++;
+	return ctx.pos;
+}
+void parse_object::dbg_log_leave(context& ctx){
+	ctx.depth--;
+	ctx.indent();
 }
 void parse_object::undo(context& ctx){
 	_undo(ctx);
@@ -70,9 +79,11 @@ parse_object_ref f_parser(std::function<bool(context& ctx)> f, bool dbg_inline, 
 	ret.impl->comment = comment;
 	return ret;
 }
+#include <cassert>
 parse_object_ref::parse_object_ref(std::shared_ptr<parse_object> ptr) : 
 	impl(ptr)
 {
+	assert(impl.get());
 }
 bool parse_object_ref::match_or_undo(context& ctx){
 	return impl->match_or_undo(ctx);
@@ -85,6 +96,12 @@ bool parse_object_ref::operator()(context& ctx){
 }
 bool parse_object_ref::match(context& ctx){
 	return impl->match(ctx);
+}
+bool parse_object_ref::_match(context& ctx){
+	return impl->_match(ctx);
+}
+void parse_object_ref::_undo(context& ctx){
+	return impl->_undo(ctx);
 }
 parse_object_ref operator+(parse_object_ref lhs, parse_object_ref rhs){
 	return f_parser([=] 
