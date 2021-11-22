@@ -2,6 +2,7 @@
 #include "matcher.hpp"
 #include "meta.hpp"
 #include <concepts>
+#include <cmath>
 #include <iostream>
 #include <variant>
 #include <optional>
@@ -527,10 +528,16 @@ struct or_helper {
 	using merge = typename append_list<NL1,NL2>::type;
 	using non_empty = typename remove_t<merge,std::tuple<>>::type;
 	using non_dup = typename dedup<non_empty>::type;
-	using type = typename t_if_else<list_size<non_dup>::value == 1,
-		  std::optional<typename non_dup::type>,
-		  typename apply_list<std::variant,non_dup>::type
-	  >::type;
+	using type = 
+		typename t_if_else<
+			std::is_same_v<NL1,NL2> && list_size<NL1>::value == 1,
+			typename NL1::type,//TODO can be list
+			typename t_if_else<
+				list_size<non_dup>::value == 1,
+				std::optional<typename non_dup::type>,
+				typename apply_list<std::variant,non_dup>::type
+			>::type
+		>::type;
 };
 
 
@@ -551,6 +558,7 @@ struct or_parser : public parse_object {
 
 	bool parse(context& ctx, ret_type& ret){
 		auto attempt = [&]<parser T>(T& t) -> bool{
+			auto prev = ctx.pos;
 			if constexpr( rparser<T> ){
 				using h_t = apply_list<hold_normal,typename T::UNPARSED_LIST>::type;
 		
@@ -563,6 +571,7 @@ struct or_parser : public parse_object {
 						return ret_type{args...};
 					});
 				}
+				if(!success)ctx.pos = prev;
 				return success;
 			}else{
 				return t.match(ctx);
@@ -805,33 +814,65 @@ int main(){
 	/* 	}; */
 	/* print_types<decltype(test)> asd; */
 	/* test(ctx); */
-
-	using num_t = float;
-	rpo<num_t> m_expr, s_expr;
-	auto rm_expr = ref(m_expr);
-	auto rs_expr = ref(s_expr);
-	m_expr = erase(
-		 (!decimal<num_t> + ws + 
-		 (optional >> ("*" +  ws + !rm_expr)) )*[](auto a, auto b) -> num_t
-		 {return b?a**b:a;}
-	);
-	s_expr = erase(
-		 (!rm_expr + ws + 
-		 (("+" +  ws + !rs_expr) | (ws + eoi)))*[](auto a, auto b) -> num_t
-		 {return b?a+*b:a;}
-	);
-
-	/* auto simple = ws+"a"+ws; */
-	/* auto simple2 = erase(decimal<int>+" * "+!decimal<int>); */
 	auto print_all = [](auto&...args){
 		((std::cout << args << ' '),...); 
 		std::cout << '\n';
 	};
-	context ctx("7*0.8");
-	/* context ctx(" a "); */
-	ctx.debug = true;
-	/* (simple2*print_all)(ctx); */
-	(rs_expr*print_all)(ctx);
+
+	using num_t = float;
+	/* rpo<num_t> m_expr, s_expr; */
+	/* auto rm_expr = ref(m_expr); */
+	/* auto rs_expr = ref(s_expr); */
+	/* m_expr = erase( */
+	/* 	 (!decimal<num_t> + ws + */ 
+	/* 	 (optional >> ("*" +  ws + !rm_expr)) )*[](auto a, auto b) -> num_t */
+	/* 	 {return b?a**b:a;} */
+	/* ); */
+	/* s_expr = erase( */
+	/* 	 (!rm_expr + ws + */ 
+	/* 	 (optional >> ("+" +  ws + !rs_expr) ))*[](auto a, auto b) -> num_t */
+	/* 	 {return b?a+*b:a;} */
+	/* ); */
+	/* context ctx("7*0.8"); */
+	/* ctx.debug = true; */
+	/* (rs_expr*print_all)(ctx); */
+
+	auto op_maker = [](std::string_view op, auto& upper, auto&& operation){
+		auto parser = std::make_unique<rpo<num_t>>();
+		*parser = erase(
+			 (!ref(upper) + ws + 
+			 (optional >> (op + ws + !ref(*parser))))
+			 *[operation](auto a, auto b){return b?operation(a,*b):a;});
+		return parser;
+	};
+
+	rpo<num_t> base;
+	auto p0 = op_maker("^",base,[](auto a, auto b){
+		return std::pow(a,b);
+	});
+	auto p1 = op_maker("/",*p0,[](auto a, auto b){
+		return a/b;
+	});
+	auto p2 = op_maker("*",*p1,[](auto a, auto b){
+		return a*b;
+	});
+	auto p3 = op_maker("-",*p2,[](auto a, auto b){
+		return a-b;
+	});
+	auto p4 = op_maker("+",*p3,[](auto a, auto b){
+		return a+b;
+	});
+	base = erase("("+ws+!ref(*p4)+ws+")" | !decimal<num_t>);
+	auto expr = !ref(*p4)+ws+eoi;
+
+	/* context ctx("1*2/3-4+5^5"); */
+	while(true){
+		std::string line;
+		std::getline(std::cin,line);
+		context ctx(line);
+		/* ctx.debug = true; */
+		((expr*print_all) | print("error"))(ctx);
+	}
 
 	/* std::cout << ctx.pos << std::endl; */
 	/* test(ctx); */
