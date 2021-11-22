@@ -3,6 +3,9 @@
 #include "meta.hpp"
 #include <concepts>
 #include <iostream>
+#include <variant>
+#include <optional>
+#include <tuple>
 
 template<bool b, typename TRUE, typename FALSE>
 struct t_if_else {};
@@ -463,6 +466,134 @@ struct forget : public parser {
 	}
 };
 
+template<typename L, typename E>
+struct remove_t {
+	using rest = typename remove_t<typename L::rest,E>::type;
+	using type = typename 
+		t_if_else<
+			std::is_same_v<typename L::type, E>,
+			rest,
+			typename append_list<TLIST<typename L::type>,rest>::type
+		>::type;
+};
+
+template<typename E>
+struct remove_t<TLIST<EOL>,E> {
+	using type = TLIST<EOL>;
+};
+
+template<typename L, typename E>
+struct contains {
+	static constexpr bool value = std::is_same_v<typename L::type,E> 
+				|| contains<typename L::rest,E>::value;
+};
+template<typename E>
+struct contains<TLIST<EOL>,E> {
+	static constexpr bool value = false;
+};
+template<typename L>
+struct dedup {
+	using inner = typename dedup<typename L::rest>::type;
+	using type = typename t_if_else<
+		contains<inner,typename L::type>::value,
+		inner,
+		typename append_list<TLIST<typename L::type>,inner>::type
+	>::type;
+};
+template<>
+struct dedup<TLIST<EOL>> {
+	using type = TLIST<EOL>;
+};
+template<typename L>
+struct inline_tuple {
+	using type = 
+		typename t_if_else<
+			list_size<L>::value == 1,
+			typename L::type,
+			typename apply_list<std::tuple,L>::type>::type;
+};
+template<typename T>
+struct inline_variant {
+	using type = TLIST<T>;
+};
+template<typename ... ARGS>
+struct inline_variant<TLIST<std::variant<ARGS...> > > {
+	using type = TLIST<ARGS...>;
+};
+template<typename L1, typename L2>
+struct or_helper {
+	using NL1 = typename inline_variant<typename inline_tuple<L1>::type>::type;
+	using NL2 = typename inline_variant<typename inline_tuple<L2>::type>::type;
+	using merge = typename append_list<NL1,NL2>::type;
+	using non_empty = typename remove_t<merge,std::tuple<>>::type;
+	using non_dup = typename dedup<non_empty>::type;
+	using type = typename t_if_else<list_size<non_dup>::value == 1,
+		  std::optional<typename non_dup::type>,
+		  typename apply_list<std::variant,non_dup>::type
+	  >::type;
+};
+
+
+template<parser P1, parser P2>
+struct or_parser : public parse_object {
+	using ret_type = typename or_helper<
+		typename P1::UNPARSED_LIST,
+		typename P2::UNPARSED_LIST>::type;
+	using UNPARSED_LIST = TLIST<ret_type>;
+	using active = active_t;
+
+	P1 p1;
+	P2 p2;
+	or_parser(P1&& op1, P2&& op2) : p1(std::move(op1)), p2(std::move(op2)) {}
+	or_parser(P1&& op1, const P2& op2) : p1(std::move(op1)), p2(op2) {}
+	or_parser(const P1& op1, P2&& op2) : p1(op1), p2(std::move(op2)) {}
+	or_parser(const P1& op1, const P2& op2) : p1(op1), p2(op2) {}
+
+	bool parse(context& ctx, ret_type& ret){
+		auto attempt = [&]<parser T>(T& t) -> bool{
+			if constexpr( rparser<T> ){
+				using h_t = apply_list<hold_normal,typename T::UNPARSED_LIST>::type;
+		
+				h_t h;
+				auto success = h.apply([&](context& ctx, auto&...args){
+					return t.parse(ctx,args...);
+				},ctx);
+				if(success){
+					ret = h.apply([](auto&...args) -> ret_type{
+						return ret_type{args...};
+					});
+				}
+				return success;
+			}else{
+				return t.match(ctx);
+			}
+		};
+		return attempt(p1) || attempt(p2);
+		//hold p1 args
+		//apply p1
+	}
+};
+
+template<parser P1, parser P2> requires rparser<P1> || rparser<P2>
+parser auto operator|(P1&& p1, P2&& p2){
+	using P1_t = std::decay_t<P1>;
+	using P2_t = std::decay_t<P2>;
+
+	return or_parser<P1_t,P2_t>{std::forward<P1_t>(p1), std::forward<P2_t>(p2)};
+
+
+
+	//compose return type
+	//optional
+	
+	//l,r
+	//inline tuple
+	//merge variant
+	//inline variant => optional
+	
+	//init ret type
+	//
+}
 template<parser P1, parser P2> requires rparser<P1> || rparser<P2>
 rparser auto operator+(P1&& p1, P2&& p2){
 	using P1_t = std::decay_t<P1>;
@@ -492,7 +623,7 @@ rparser auto operator+(P1&& p1, P2&& p2){
 		});
 	}
 }
-template<typename P, typename F>
+template<parser P, typename F>
 auto operator*(P&& p, F&& unparser) {
 	using P_t = std::decay_t<P>;
 	using invoke_info = invoke_list<F,typename get_ref_list<typename P_t::UNPARSED_LIST>::type>;
@@ -559,6 +690,20 @@ auto number = fr_parser<integer>([](context& ctx, integer& ret){
 		++ctx.pos;
 	}
 	if(invalid)return false;
+	if constexpr(std::floating_point<integer>){
+		if(ctx.get() == '.'){
+			++ctx.pos;
+			invalid = true;
+			integer alpha = 1;
+			while(!ctx.done() && std::isdigit(ctx.get())){
+				invalid = false;
+				alpha /= base;
+				ret += (ctx.get()-'0')*alpha;
+				++ctx.pos;
+			}
+			if(invalid)return false;
+		}
+	}
 	if(negative)ret = -ret;
 	return true;
 });
@@ -610,6 +755,11 @@ parser auto ref(auto& p){
 	using inner = std::decay_t<decltype(p)>;
 	return parse_object_ref<inner>{p};
 }
+template<rparser T>
+parser auto operator>>(optional_t,T&& rhs) {
+	auto ret = std::forward<T>(rhs) | (not_v >> fail);
+	return ret;
+}
 
 int main(){
 	/* nr_parser<VOID,VOID,int,std::string_view> p({},{}); */
@@ -656,14 +806,20 @@ int main(){
 	/* print_types<decltype(test)> asd; */
 	/* test(ctx); */
 
-	rpo<int> m_expr, s_expr;
+	using num_t = float;
+	rpo<num_t> m_expr, s_expr;
 	auto rm_expr = ref(m_expr);
 	auto rs_expr = ref(s_expr);
-	s_expr = erase(decimal<int>);
 	m_expr = erase(
-			(!rs_expr
-			 + ws +  "*" +  ws +
-			 !rs_expr)*[](int a, int b) -> int{return a*b;});
+		 (!decimal<num_t> + ws + 
+		 (optional >> ("*" +  ws + !rm_expr)) )*[](auto a, auto b) -> num_t
+		 {return b?a**b:a;}
+	);
+	s_expr = erase(
+		 (!rm_expr + ws + 
+		 (("+" +  ws + !rs_expr) | (ws + eoi)))*[](auto a, auto b) -> num_t
+		 {return b?a+*b:a;}
+	);
 
 	/* auto simple = ws+"a"+ws; */
 	/* auto simple2 = erase(decimal<int>+" * "+!decimal<int>); */
@@ -671,11 +827,11 @@ int main(){
 		((std::cout << args << ' '),...); 
 		std::cout << '\n';
 	};
-	context ctx("4 * 3");
+	context ctx("7*0.8");
 	/* context ctx(" a "); */
 	ctx.debug = true;
 	/* (simple2*print_all)(ctx); */
-	(rm_expr*print_all)(ctx);
+	(rs_expr*print_all)(ctx);
 
 	/* std::cout << ctx.pos << std::endl; */
 	/* test(ctx); */

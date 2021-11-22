@@ -37,6 +37,9 @@ inline parser auto operator>>(any_t,std::string_view rhs){
 inline parser auto operator>>(not_t, std::string_view rhs){
 	return not_v >> text_parser(rhs);
 }
+/* inline parser auto operator>>(optional_t,std::string_view text) { */
+/* 	return optional >> text_parser(text); */
+/* } */
 template<parser T>
 parser auto operator|(T&& rhs, std::string_view sv){
 	return std::forward<T>(rhs) | text_parser(sv);

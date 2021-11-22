@@ -21,8 +21,13 @@ parser auto operator>>(not_t, T&& rhs){
 	});
 }
 
-/* auto operator>>(optional_t,parse_object_ref rhs) -> parse_object_ref; */
-/* auto operator>>(optional_t,std::string_view text) -> parse_object_ref; */
+/* template<parser T> */
+/* parser auto operator>>(optional_t,T&& rhs) { */
+/* 	return f_parser([r=std::forward<T>(rhs)](context& ctx){ */
+/* 		c.match(ctx); */
+/* 		return true; */
+/* 	} */
+/* } */
 
 /* auto operator>>(plus_t, parse_object_ref rhs) -> parse_object_ref; */
 /* auto operator>>(plus_t,std::string_view text) -> parse_object_ref; */

@@ -1,15 +1,15 @@
 #include "quantifiers.hpp"
 #include "matcher.hpp"
 
-parse_object_ref operator>>(optional_t,parse_object_ref rhs){
-	return f_parser([=](context& ctx) mutable {
-			rhs.match(ctx);
-			return true;
-		});
-}
-parse_object_ref operator>>(optional_t,std::string_view text){
-	return optional >> text_parser(text);
-}
+/* parse_object_ref operator>>(optional_t,parse_object_ref rhs){ */
+/* 	return f_parser([=](context& ctx) mutable { */
+/* 			rhs.match(ctx); */
+/* 			return true; */
+/* 		}); */
+/* } */
+/* parse_object_ref operator>>(optional_t,std::string_view text){ */
+/* 	return optional >> text_parser(text); */
+/* } */
 parse_object_ref operator>>(plus_t, parse_object_ref rhs){
 	return rhs + (any >> rhs);
 }

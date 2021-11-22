@@ -28,6 +28,7 @@ template<typename T>
 concept rparser = parser<T> && requires(T t,context& ctx){
 	typename T::UNPARSED_LIST;
 	typename T::active;
+	typename std::enable_if_t<!std::same_as<typename T::UNPARSED_LIST, TLIST<EOL>>>;
 };
 
 class parse_object {
