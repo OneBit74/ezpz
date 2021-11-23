@@ -733,6 +733,13 @@ struct rpo : public parse_object{
 		this->f = std::forward<F>(f);
 	}
 
+	template<parser T>
+	void operator=(T&& p){
+		f = [p = std::forward<T>(p)](context& ctx, auto&...up_args) mutable -> bool {
+				return p.parse(ctx,up_args...);
+		};
+	}
+
 	bool parse(context& ctx, UNPARSED&...up_args){
 		return f(ctx,up_args...);
 	}
@@ -768,6 +775,11 @@ template<rparser T>
 parser auto operator>>(optional_t,T&& rhs) {
 	auto ret = std::forward<T>(rhs) | (not_v >> fail);
 	return ret;
+}
+auto assign(auto& dst){
+	return [&](decltype(dst)& val){
+		dst = val;
+	};
 }
 
 int main(){
@@ -837,12 +849,32 @@ int main(){
 	/* ctx.debug = true; */
 	/* (rs_expr*print_all)(ctx); */
 
+	auto op_maker_la = [](std::string_view op, auto& upper, auto&& operation){
+		auto parser = std::make_unique<rpo<num_t>>();
+		*parser = fr_parser<num_t>([op,operation,&upper](context& ctx, num_t& num){
+			return (ref(upper)*assign(num)+ws+(any >> (op+ws+ref(upper)*
+					[&](num_t val){
+						std::cout << num << " - " << val << " = " << num-val << std::endl;
+						num -= val;
+					}
+			)))(ctx);
+		});
+		return parser;
+	};
 	auto op_maker = [](std::string_view op, auto& upper, auto&& operation){
 		auto parser = std::make_unique<rpo<num_t>>();
-		*parser = erase(
-			 (!ref(upper) + ws + 
-			 (optional >> (op + ws + !ref(*parser))))
-			 *[operation](auto a, auto b){return b?operation(a,*b):a;});
+		*parser = 
+			 (!ref(upper) + ws + (optional >> (op + ws + !ref(*parser))))
+			 *[=,operation](auto a, auto b){
+				 if(b){
+					auto ret = operation(a,*b);
+					std::cout << a << " " << op << " " << *b << " = " << ret << std::endl;
+					return ret;
+				 }else{
+					return a;
+				 }
+				 /* return b ? operation(a,*b) : a; */
+			 };
 		return parser;
 	};
 
@@ -856,14 +888,14 @@ int main(){
 	auto p2 = op_maker("*",*p1,[](auto a, auto b){
 		return a*b;
 	});
-	auto p3 = op_maker("-",*p2,[](auto a, auto b){
+	auto p3 = op_maker_la("-",*p2,[](auto a, auto b){
 		return a-b;
 	});
 	auto p4 = op_maker("+",*p3,[](auto a, auto b){
 		return a+b;
 	});
-	base = erase("("+ws+!ref(*p4)+ws+")" | !decimal<num_t>);
-	auto expr = !ref(*p4)+ws+eoi;
+	base = "("+ws+!ref(*p4)+ws+")" | !decimal<num_t>;
+	auto expr = ws+!ref(*p4)+ws+eoi;
 
 	/* context ctx("1*2/3-4+5^5"); */
 	while(true){
