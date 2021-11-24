@@ -21,8 +21,6 @@ struct t_if_else<false,TRUE,FALSE> {
 	using type = FALSE;
 };
 class VOID {};
-template<typename ... ARGS>
-struct  print_types;
 
 template<typename T, T...vals>
 struct [[deprecated]] print_vals;
@@ -61,19 +59,6 @@ struct instantiate_if_inner<true,C,ARGS...> : C<ARGS...> {
 	using type = typename C<ARGS...>::type;
 };
 
-template<template<typename...> class T, typename L, typename...ARGS>
-struct apply_list { 
-	using type = typename apply_list<T,typename L::rest,ARGS...,typename L::type>::type;
-	/* using type = t_if_else< */
-	/* 	std::is_same_v<TLIST<EOL>,L>, */
-	/* 	typename instantiate_if<std::is_same_v<TLIST<EOL>,L>,T,ARGS...>::type, */
-	/* 	typename instantiate_if_inner<!std::is_same_v<TLIST<EOL>,L>,apply_list,T,typename L::rest,ARGS...,typename L::type>::type */
-	/* >::type; */
-};
-template<template<typename...> class T, typename ... ARGS>
-struct apply_list<T,TLIST<EOL>,ARGS...> {
-	using type = T<ARGS...>;
-};
 
 
 template<typename ... ARGS>
@@ -87,23 +72,6 @@ struct invoke_list_result {
 	using ret = std::invoke_result_t<F,ARGS...>;
 };
 
-
-template<typename L, typename...ARGS>
-struct append_list_hlp {
-	using type = typename append_list_hlp<typename L::rest,ARGS...,typename L::type>::type;
-};
-template<typename ... ARGS>
-struct append_list_hlp<TLIST<EOL>,ARGS...> {
-	using type = TLIST<ARGS...>;
-};
-template<typename L1, typename L2, typename ... ARGS>
-struct append_list {
-	using type = typename append_list<typename L1::rest, L2, ARGS..., typename L1::type>::type;
-};
-template<typename L2, typename ...ARGS>
-struct append_list<TLIST<EOL>,L2,ARGS...>{
-	using type = typename append_list_hlp<L2,ARGS...>::type; 
-};
 
 template<typename L>
 struct list_size {
@@ -289,21 +257,12 @@ struct nr_parser : public parse_object {
 		parent(std::forward<REM>(parent)),
 		f(std::forward<unp>(f))
 	{};
-	bool parse(context& ctx, UNPARSED&...up_args){
+	bool _parse(context& ctx, UNPARSED&...up_args){
 		if constexpr(std::is_same_v<REM,VOID>){
 			return true;
 		}else{
 			if constexpr( std::is_same_v<unp,VOID> ) {
-				if(ctx.debug && !dbg_inline){
-					auto prev = parse_object::dbg_log_enter(ctx);
-					auto ret = parent.parse(ctx,up_args...);
-					parse_object::dbg_log_leave(ctx);
-					std::cout << "accepted ";
-					dbg_log_comment(ctx,prev);
-					return ret;
-				}else{
-					return parent.parse(ctx,up_args...);
-				}
+				return parse(ctx,parent,up_args...);
 			}else if constexpr (!std::is_same_v<typename unp::RET,void>){
 				using hold_args = typename get_decay_list<
 					typename reverse_list<
@@ -312,20 +271,11 @@ struct nr_parser : public parse_object {
 				hold_type hold;
 				/* print_types<UNPARSED...> fds; */
 				bool success = hold.apply_not_first([&](auto&...args){
-					return parent.parse(ctx,args...);
+					return parse(ctx,parent,args...);
 				},up_args...);
 				if(!success)return false;
 
-				if(ctx.debug && !dbg_inline){
-					auto prev = parse_object::dbg_log_enter(ctx);
-					assign_first(hold.apply(f),up_args...);
-					parse_object::dbg_log_leave(ctx);
-					std::cout << "accepted ";
-					dbg_log_comment(ctx,prev);
-				}else{
-					assign_first(hold.apply(f),up_args...);
-				}
-
+				assign_first(hold.apply(f),up_args...);
 				return true;
 			}else{
 				using hold_args = typename get_decay_list<typename reverse_list<typename unp::ARGS>::type>::type;
@@ -333,29 +283,21 @@ struct nr_parser : public parse_object {
 				hold_type hold;
 				bool success = hold.apply([&](auto&...args){
 					/* print_types<decltype(args)...> fds; */
-					return parent.parse(ctx,args...);
+					return parse(ctx,parent,args...);
 				},up_args...);
 				if(!success)return false;
 
-				if(ctx.debug && !dbg_inline){
-					auto prev = parse_object::dbg_log_enter(ctx);
-					hold.apply(f);
-					parse_object::dbg_log_leave(ctx);
-					std::cout << "accepted ";
-					dbg_log_comment(ctx,prev);
-				}else{
-					hold.apply(f);
-				}
+				hold.apply(f);
 
 				return true;
 			}
 		}
 	}
-	bool _match(context& ctx) override{
+	bool _match(context& ctx) {
 		using hold_args = typename reverse_list<TLIST<UNPARSED...>>::type;
 		using hold_type = typename instantiate_list<hold,hold_args>::type;
 		hold_type h;
-		return h.apply([&](UNPARSED&...u_args){return parse(ctx,u_args...);});
+		return h.apply([&](UNPARSED&...u_args){return this->_parse(ctx,u_args...);});
 	}
 };
 template<typename...A1,typename...A2>
@@ -363,80 +305,80 @@ auto create_join_parser(auto&& p1, auto&& p2, TLIST<A1...>,TLIST<A2...>){
 	using P1 = std::decay_t<decltype(p1)>;
 	using P2 = std::decay_t<decltype(p2)>;
 	if constexpr (std::is_same_v<TLIST<A2...>,TLIST<EOL>>){
-		using parent_t = nr_parser<VOID,VOID,A1...>;
-		struct join_p : public parent_t {
+		struct join_p : public parse_object {
 			using active = active_t;
-			using UNPARSED_LIST = typename parent_t::UNPARSED_LIST;
+			using UNPARSED_LIST = TLIST<A1...>;
 			P1 p1;
 			P2 p2;
 			join_p(P1&& p1, P2&& p2) :
-				parent_t({},{}),
 				p1(std::forward<P1>(p1)),
 				p2(std::forward<P2>(p2))
 			{}
-			bool parse(context& ctx,A1&...a1) {
-				return p1.parse(ctx,a1...) && p2._match(ctx);
+			bool _parse(context& ctx,A1&...a1) {
+				return parse(ctx,p1,a1...) && match(ctx,p2);
 			}
-			bool _match(context& ctx) override {
+			bool _match(context& ctx) {
 				hold_normal<A1...> h;
 				return h.apply([self=this](context& ctx,A1&...a1) mutable {
-						return self->parse(ctx,a1...);
+						return self->_parse(ctx,a1...);
 					},ctx);
+			}
+			bool dbg_inline() const {
+				return true;
 			}
 		};
 		auto ret = join_p{std::forward<P1>(p1),std::forward<P2>(p2)};
-		ret.dbg_inline = true;
 		return ret;
 	}else if constexpr( std::is_same_v<TLIST<A1...>,TLIST<EOL>>){
-		using parent_t = nr_parser<VOID,VOID,A2...>;
-		struct join_p : public parent_t {
+		struct join_p : public parse_object {
 			using active = active_t;
-			using UNPARSED_LIST = typename parent_t::UNPARSED_LIST;
+			using UNPARSED_LIST = TLIST<A2...>;
 			P1 p1;
 			P2 p2;
 			join_p(P1&& p1, P2&& p2) :
-				parent_t({},{}),
 				p1(std::forward<P1>(p1)),
 				p2(std::forward<P2>(p2))
 			{}
-			bool parse(context& ctx,A2&...a2) {
-				return p1._match(ctx) && p2.parse(ctx,a2...);
+			bool _parse(context& ctx,A2&...a2) {
+				return match(ctx,p1) && parse(ctx,p2,a2...);
 			}
-			bool _match(context& ctx) override {
+			bool _match(context& ctx) {
 				hold_normal<A2...> h;
 				return h.apply([self=this](context& ctx,A2&...a2) mutable {
-						return self->parse(ctx,a2...);
-					},ctx);
+						return self->_parse(ctx,a2...);
+				},ctx);
+			}
+			bool dbg_inline() const {
+				return true;
 			}
 		};
 		auto ret = join_p{std::forward<P1>(p1),std::forward<P2>(p2)};
-		ret.dbg_inline = true;
 		return ret;
 	}else{
-		using parent_t = nr_parser<VOID,VOID,A1...,A2...>;
-		struct join_p : public parent_t {
+		struct join_p : public parse_object {
 			using active = active_t;
-			using UNPARSED_LIST = typename parent_t::UNPARSED_LIST;
+			using UNPARSED_LIST = TLIST<A1...,A2...>;
 			P1 p1;
 			P2 p2;
 			join_p(P1&& p1, P2&& p2) :
-				parent_t({},{}),
 				p1(std::forward<P1>(p1)),
 				p2(std::forward<P2>(p2))
 			{}
-			bool parse(context& ctx,A1&...a1,A2&...a2) {
-				return p1.parse(ctx,a1...) && p2.parse(ctx,a2...);
+			bool _parse(context& ctx,A1&...a1,A2&...a2) {
+				return parse(ctx,p1,a1...) && parse(ctx,p2,a2...);
 			}
-			bool _match(context& ctx) override {
+			bool _match(context& ctx) {
 				hold_normal<A1...,A2...> h;
 				return h.apply([self=this](context& ctx,A1&...a1,A2&...a2) mutable {
-						return self->parse(ctx,a1...,a2...);
-					},ctx);
+						return self->_parse(ctx,a1...,a2...);
+				},ctx);
 		
+			}
+			bool dbg_inline() const {
+				return true;
 			}
 		};
 		auto ret = join_p{std::forward<P1>(p1),std::forward<P2>(p2)};
-		ret.dbg_inline = true;
 		return ret;
 	}
 
@@ -444,7 +386,7 @@ auto create_join_parser(auto&& p1, auto&& p2, TLIST<A1...>,TLIST<A2...>){
 
 
 template<typename parser>
-struct activated: public parser {
+struct activated : public parser {
 	using active = active_t;
 	activated(parser&& self) : parser(self) {};
 };
@@ -455,15 +397,20 @@ auto operator!(T&& nr) {
 	return activated<P>(std::forward<P>(nr));
 }
 template<typename parser>
-struct forget : public parser {
+struct forget : public parse_object {
 	using UNPARSED_LIST = TLIST<EOL>;
 	using active = active_f;
 
-	forget(parser& p) : parser(p) {};
-	forget(parser&& p) : parser(std::move(p)) {};
+	parser p;
+
+	forget(parser& op) : p(op) {};
+	forget(parser&& op) : p(std::move(op)) {};
 	
-	bool parse(context& ctx, EOL&){
-		return parser::_match(ctx);
+	bool _match(context& ctx){
+		return match(ctx,p);
+	}
+	bool dbg_inline(){
+		return true;
 	}
 };
 
@@ -556,7 +503,7 @@ struct or_parser : public parse_object {
 	or_parser(const P1& op1, P2&& op2) : p1(op1), p2(std::move(op2)) {}
 	or_parser(const P1& op1, const P2& op2) : p1(op1), p2(op2) {}
 
-	bool parse(context& ctx, ret_type& ret){
+	bool _parse(context& ctx, ret_type& ret){
 		auto attempt = [&]<parser T>(T& t) -> bool{
 			auto prev = ctx.pos;
 			if constexpr( rparser<T> ){
@@ -564,7 +511,7 @@ struct or_parser : public parse_object {
 		
 				h_t h;
 				auto success = h.apply([&](context& ctx, auto&...args){
-					return t.parse(ctx,args...);
+					return parse(ctx,t,args...);
 				},ctx);
 				if(success){
 					ret = h.apply([](auto&...args) -> ret_type{
@@ -574,12 +521,13 @@ struct or_parser : public parse_object {
 				if(!success)ctx.pos = prev;
 				return success;
 			}else{
-				return t.match(ctx);
+				return match(ctx,t);
 			}
 		};
 		return attempt(p1) || attempt(p2);
-		//hold p1 args
-		//apply p1
+	}
+	bool dbg_inline() const{
+		return true;
 	}
 };
 
@@ -604,7 +552,7 @@ parser auto operator|(P1&& p1, P2&& p2){
 	//
 }
 template<parser P1, parser P2> requires rparser<P1> || rparser<P2>
-rparser auto operator+(P1&& p1, P2&& p2){
+parser auto operator+(P1&& p1, P2&& p2){
 	using P1_t = std::decay_t<P1>;
 	using P2_t = std::decay_t<P2>;
 	/* print_types<typename P1_t::UNPARSED_LIST, typename P2_t::UNPARSED_LIST, P1_t,P2_t> asd; */
@@ -628,7 +576,7 @@ rparser auto operator+(P1&& p1, P2&& p2){
 	} else {
 		return f_parser([first = std::forward<P1>(p1),second=std::forward<P2>(p2)] 
 		(auto& ctx) mutable {
-			return first.match(ctx) && second.match(ctx);
+			return match(ctx,first) && match(ctx,second);
 		});
 	}
 }
@@ -638,7 +586,6 @@ auto operator*(P&& p, F&& unparser) {
 	using invoke_info = invoke_list<F,typename get_ref_list<typename P_t::UNPARSED_LIST>::type>;
 	using invoke_args = typename invoke_info::args;
 	/* using invoke_ret = typename invoke_info::ret; */
-	/* print_types<invoke_args,F,typename P::UNPARSED_LIST> asd; */
 	using remaining_types = 
 		typename pop_n<list_size<invoke_args>::value,typename P_t::UNPARSED_LIST>::type;
 	using F_TYPE = f_wrapper<typename std::decay_t<F>,typename invoke_info::ret,typename invoke_info::args>;
@@ -654,6 +601,8 @@ auto operator*(P&& p, F&& unparser) {
 			typename append_list<TLIST<F_TYPE,P_t>,remaining_types>::type;
 		using ret_type = 
 			typename apply_list<nr_parser,ret_args>::type;
+		/* print_types<ret_type> asd; */
+		/* print_types<ret_args> asd2; */
 		return ret_type(F_TYPE{std::forward<F>(unparser)},std::forward<P>(p));
 	}
 			/* nr_parser<decltype(unparser),self_t,RET>, */
@@ -664,18 +613,22 @@ auto operator*(P&& p, F&& unparser) {
 }
 /* print_types<invoke_list<std::function<void(int,int)>,TLIST<int,int>>> dfhskf; */
 static_assert(std::is_same_v<invoke_list<std::function<void(int&,int&)>,TLIST<int&,int&>>::args,TLIST<int&,int&>>);
-template<typename F_TYPE>
-struct fr_parser_t {
+
+template<typename F_TYPE, typename ... ARGS>
+struct fr_parser_t : public parse_object {
+	using UNPARSED_LIST = TLIST<ARGS...>;
 	F_TYPE fds;
 	fr_parser_t(F_TYPE&& fds) : fds(std::forward<F_TYPE>(fds)) {};
-	bool parse(context& ctx, auto&...args){
+	bool _parse(context& ctx, ARGS&...args){
 		return fds(ctx,args...);
 	}
 };
+
 template<typename ... ARGS>
 auto fr_parser(auto&& f){
 	using F_TYPE = std::decay_t<decltype(f)>;
-	return nr_parser<VOID,fr_parser_t<F_TYPE>,ARGS...>({},fr_parser_t<F_TYPE>{std::forward<F_TYPE>(f)});
+	using parser = fr_parser_t<F_TYPE,ARGS...>;
+	return nr_parser<VOID,parser,ARGS...>({},parser{std::forward<F_TYPE>(f)});
 }
 template<typename integer, int base>
 auto number = fr_parser<integer>([](context& ctx, integer& ret){
@@ -736,26 +689,26 @@ struct rpo : public parse_object{
 	template<parser T>
 	void operator=(T&& p){
 		f = [p = std::forward<T>(p)](context& ctx, auto&...up_args) mutable -> bool {
-				return p.parse(ctx,up_args...);
+				return parse(ctx,p,up_args...);
 		};
 	}
 
-	bool parse(context& ctx, UNPARSED&...up_args){
+	bool _parse(context& ctx, UNPARSED&...up_args){
 		return f(ctx,up_args...);
 	}
-	bool _match(context& ctx) override {
+	bool _match(context& ctx) {
 		hold_normal<UNPARSED...> h;
 		return h.apply(f,ctx);
+	}
+	bool dbg_inline() const {
+		return true;
 	}
 };
 auto erase(parser auto&& parser){
 	using prev_type = std::decay_t<decltype(parser)>;
 	using ret_type = 
 		typename apply_list<rpo,typename prev_type::UNPARSED_LIST>::type;
-	ret_type ret(
-			[parser= std::forward<prev_type>(parser)](context& ctx, auto&...up_args) mutable -> bool {
-			return parser.parse(ctx,up_args...);
-		});
+	ret_type ret = parser;
 	return ret;
 }
 auto copy(auto&& val){
@@ -771,7 +724,7 @@ parser auto ref(auto& p){
 	using inner = std::decay_t<decltype(p)>;
 	return parse_object_ref<inner>{p};
 }
-template<rparser T>
+template<parser T>
 parser auto operator>>(optional_t,T&& rhs) {
 	auto ret = std::forward<T>(rhs) | (not_v >> fail);
 	return ret;
@@ -783,130 +736,47 @@ auto assign(auto& dst){
 }
 
 int main(){
-	/* nr_parser<VOID,VOID,int,std::string_view> p({},{}); */
-	/* auto next = std::move(p) * [](int i){ */
-	/* 	std::cout << i << std::endl; */
-	/* } * [](std::string_view sv){ */
-	/* 	std::cout << sv.size() << " " << sv << std::endl; */
-	/* }; */
-	/* auto next = std::move(p) * [](int,std::string_view){}; */
-	/* context ctx; */
-	/* ctx.input = "hallo"; */
-	/* next.parse(ctx); */
-	/* auto test = fr_parser<std::string_view,int>([](context&,std::string_view& i,int& s){ */ 
-	/* 		i="Hello, World!"; */
-	/* 		s = 24; */
-	/* 		return true;}) * */
-	/* 	[](auto&...args){ */
-	/* 		((std::cout << args << ' '),...); */
-	/* 		std::cout << std::endl; */
-	/* 	}; */
-
-	/* auto test = ( */
-	/* 		!fr_parser<int>([](context&, int& i){ */
-	/* 			i = 2; */
-	/* 			return true; */
-	/* 		}) */ 
-	/* 		+ */
-	/* 		!fr_parser<int>([](context&, int& i){ */
-	/* 			i = 53; */
-	/* 			return true; */
-	/* 		}) */ 
-	/* 		+ */
-	/* 		!fr_parser<std::string_view>([](context&, auto& i){ */
-	/* 			i = "Hello, World"; */
-	/* 			return true; */
-	/* 		}) */ 
-	/* 		) */
-	/* 	* [](auto a, auto b){return a+b;} */
-	/* 	* */
-	/* 	[](auto&...args){ */
-	/* 		((std::cout << args << ' '),...); */
-	/* 		std::cout << std::endl; */
-	/* 	}; */
-	/* print_types<decltype(test)> asd; */
-	/* test(ctx); */
 	auto print_all = [](auto&...args){
 		((std::cout << args << ' '),...); 
 		std::cout << '\n';
 	};
 
 	using num_t = float;
-	/* rpo<num_t> m_expr, s_expr; */
-	/* auto rm_expr = ref(m_expr); */
-	/* auto rs_expr = ref(s_expr); */
-	/* m_expr = erase( */
-	/* 	 (!decimal<num_t> + ws + */ 
-	/* 	 (optional >> ("*" +  ws + !rm_expr)) )*[](auto a, auto b) -> num_t */
-	/* 	 {return b?a**b:a;} */
-	/* ); */
-	/* s_expr = erase( */
-	/* 	 (!rm_expr + ws + */ 
-	/* 	 (optional >> ("+" +  ws + !rs_expr) ))*[](auto a, auto b) -> num_t */
-	/* 	 {return b?a+*b:a;} */
-	/* ); */
-	/* context ctx("7*0.8"); */
-	/* ctx.debug = true; */
-	/* (rs_expr*print_all)(ctx); */
 
 	auto op_maker_la = [](std::string_view op, auto& upper, auto&& operation){
-		auto parser = std::make_unique<rpo<num_t>>();
-		*parser = fr_parser<num_t>([op,operation,&upper](context& ctx, num_t& num){
-			return (ref(upper)*assign(num)+ws+(any >> (op+ws+ref(upper)*
+		return fr_parser<num_t>([op,operation,&upper](context& ctx, num_t& num){
+			return match(ctx,ref(upper)*assign(num)+ws+(any >> (op+ws+ref(upper)*
 					[&](num_t val){
-						std::cout << num << " - " << val << " = " << num-val << std::endl;
-						num -= val;
+						std::cout << num << " " << op << " " << val << " = " << operation(num,val) << std::endl;
+						num = operation(num,val);
 					}
-			)))(ctx);
+			)));
 		});
-		return parser;
 	};
-	auto op_maker = [](std::string_view op, auto& upper, auto&& operation){
-		auto parser = std::make_unique<rpo<num_t>>();
-		*parser = 
-			 (!ref(upper) + ws + (optional >> (op + ws + !ref(*parser))))
-			 *[=,operation](auto a, auto b){
-				 if(b){
-					auto ret = operation(a,*b);
-					std::cout << a << " " << op << " " << *b << " = " << ret << std::endl;
-					return ret;
-				 }else{
-					return a;
-				 }
-				 /* return b ? operation(a,*b) : a; */
-			 };
-		return parser;
-	};
-
 	rpo<num_t> base;
-	auto p0 = op_maker("^",base,[](auto a, auto b){
+	auto p0 = op_maker_la("^",base,[](auto a, auto b){
 		return std::pow(a,b);
 	});
-	auto p1 = op_maker("/",*p0,[](auto a, auto b){
+	auto p1 = op_maker_la("/",p0,[](auto a, auto b){
 		return a/b;
 	});
-	auto p2 = op_maker("*",*p1,[](auto a, auto b){
+	auto p2 = op_maker_la("*",p1,[](auto a, auto b){
 		return a*b;
 	});
-	auto p3 = op_maker_la("-",*p2,[](auto a, auto b){
+	auto p3 = op_maker_la("-",p2,[](auto a, auto b){
 		return a-b;
 	});
-	auto p4 = op_maker("+",*p3,[](auto a, auto b){
+	auto p4 = op_maker_la("+",p3,[](auto a, auto b){
 		return a+b;
 	});
-	base = "("+ws+!ref(*p4)+ws+")" | !decimal<num_t>;
-	auto expr = ws+!ref(*p4)+ws+eoi;
+	base = "("+ws+!ref(p4)+ws+")" | !decimal<num_t>;
+	auto expr = ws+!ref(p4)+ws+eoi;
 
-	/* context ctx("1*2/3-4+5^5"); */
 	while(true){
 		std::string line;
 		std::getline(std::cin,line);
 		context ctx(line);
-		/* ctx.debug = true; */
-		((expr*print_all) | print("error"))(ctx);
+		match(ctx,((expr*print_all) | print("error")));
 	}
 
-	/* std::cout << ctx.pos << std::endl; */
-	/* test(ctx); */
-	/* std::cout << ctx.pos << std::endl; */
 }

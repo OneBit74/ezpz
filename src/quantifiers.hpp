@@ -10,14 +10,14 @@ inline struct not_t {} not_v;
 template<parser T>
 parser auto operator>>(any_t,T&& rhs) {
 	return f_parser([r=std::forward<T>(rhs)](context& ctx) mutable {
-		while(r.match_or_undo(ctx) && !ctx.done()){}
+		while(match_or_undo(ctx,r) && !ctx.done()){}
 		return true;
 	});
 }
 template<parser T>
 parser auto operator>>(not_t, T&& rhs){
 	return f_parser([r=std::forward<T>(rhs)](auto& ctx) mutable {
-		return !r.match(ctx);
+		return !match(ctx,r);
 	});
 }
 
