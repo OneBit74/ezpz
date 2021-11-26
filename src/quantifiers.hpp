@@ -1,5 +1,6 @@
 #pragma once
 #include "parse_object.hpp"
+#include "ezpz.hpp"
 #include "r_parser.hpp"
 
 inline struct optional_t {} optional;
@@ -19,6 +20,11 @@ parser auto operator>>(not_t, T&& rhs){
 	return f_parser([r=std::forward<T>(rhs)](auto& ctx) mutable {
 		return !match(ctx,r);
 	});
+}
+template<parser T>
+parser auto operator>>(optional_t,T&& rhs) {
+	auto ret = std::forward<T>(rhs) | (not_v >> fail);
+	return ret;
 }
 
 /* template<parser T> */

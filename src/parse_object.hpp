@@ -68,11 +68,11 @@ bool match(context& ctx, parser auto&& p){
 		return p._match(ctx);
 	}
 }
-bool match(std::string_view sv, parser auto&& p){
-	context ctx(sv);
+bool match(std::string s, parser auto&& p){
+	context ctx(std::move(s));
 	return match(ctx,std::forward<std::decay_t<decltype(p)>>(p));
 }
-template<typename P> requires rparser<std::decay_t<P>>
+template<typename P> requires parser<std::decay_t<P>>
 bool parse(context& ctx, P&& p, auto&...args){
 	if(ctx.debug && !p.dbg_inline()){
 		dbg_log_enter(ctx,p.name());
