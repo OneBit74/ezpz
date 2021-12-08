@@ -13,8 +13,9 @@ include_directories(${rapidcheck_SOURCE_DIR}/include)
 include_directories(${rapidcheck_SOURCE_DIR}/extras/gtest/include)
 
 
+#"-fconcepts-diagnostics-depth=20" "-fopenmp"
 add_compile_options(
-	"-Wall" "-Wpedantic" "-Wno-unused-local-typedefs" "-Wextra" "-fexceptions" "-fopenmp" "-fconcepts-diagnostics-depth=20"
+	"-Wall" "-Wpedantic" "-Wno-unused-local-typedefs" "-Wextra" "-fexceptions"
 	"$<$<CONFIG:DEBUG>:-O0;-g3;-ggdb;-ftrapv;-fbounds-check;-fsanitize=undefined>"
 	"$<$<CONFIG:RELEASE>:-O3>"
 	)

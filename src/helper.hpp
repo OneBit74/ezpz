@@ -7,7 +7,7 @@ inline struct print_t {
 		auto ret =  f_parser([=](auto){
 					print_text(text);
 					return true;
-				},true);
+				});
 		return ret;
 	};
 } print;

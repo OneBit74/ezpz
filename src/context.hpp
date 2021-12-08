@@ -14,7 +14,7 @@ public:
 	context() = default;
 	context(std::string str);
 
-	char get();
-	bool done();
+	inline char get(){return input[pos];}
+	inline bool done(){return pos == input.size();}
 	void indent();
 };

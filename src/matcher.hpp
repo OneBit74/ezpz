@@ -19,7 +19,7 @@ inline parser auto text_parser(std::string_view sv) {
 				++ctx.pos;
 			}
 			return true;
-		},false,fmt::format("text \"{}\"",sv)
+		}
 	);
 }
 inline parser auto text(const std::string_view& sv) {
@@ -29,7 +29,7 @@ inline parser auto text(const std::string_view& sv) {
 			++ctx.pos;
 		}
 		return true;
-	},false,"dynamic text");
+	});
 }
 
 inline parser auto operator>>(any_t,std::string_view rhs){
@@ -56,6 +56,9 @@ parser auto operator+(T&& rhs, std::string_view sv){
 template<parser T>
 parser auto operator+(std::string_view sv, T&& rhs){
 	return text_parser(sv) + std::forward<T>(rhs);
+}
+inline auto operator "" _p(const char* s, size_t len){
+	return text_parser(std::string_view{s,len});
 }
 
 inline auto ws = f_parser([](context& ctx){
@@ -133,6 +136,14 @@ auto number = fr_parser<integer>([](context& ctx, integer& ret){
 template<typename integer>
 auto& decimal = number<integer,10>;
 
+inline struct alpha_p : public parse_object {
+	bool _match(context& ctx){
+		if(ctx.done())return false;
+		auto ret = isalpha(ctx.get());
+		ctx.pos++;
+		return ret;
+	}
+} alpha;
 inline struct single_p : public parse_object {
 	bool _match(context& ctx){
 		if(ctx.done())return false;
@@ -158,6 +169,10 @@ inline auto regex(std::string_view pattern){
 		return true;
 	});
 }
+
+/* auto operator|(std::string_view sv1, std::string_view sv2){ */
+/* 	return text_parser(sv1) | text_parser(sv2); */
+/* } */
 /* template<parser P> */
 /* auto capture(parser P&& p){ */
 /* 	return fr_parser<std::string_view>( */

@@ -73,6 +73,18 @@ bool match(std::string s, parser auto&& p){
 	return match(ctx,std::forward<std::decay_t<decltype(p)>>(p));
 }
 template<typename P> requires parser<std::decay_t<P>>
+bool parse_or_undo(context& ctx, P&& p, auto&...args){
+	using P_t = std::decay_t<P>;
+	auto start_pos = ctx.pos;
+	if(parse(ctx,std::forward<P_t>(p), args...)){
+		return true;
+	}else{
+		ctx.pos = start_pos;
+		p._undo(ctx);
+		return false;
+	}
+}
+template<typename P> requires parser<std::decay_t<P>>
 bool parse(context& ctx, P&& p, auto&...args){
 	if(ctx.debug && !p.dbg_inline()){
 		dbg_log_enter(ctx,p.name());
@@ -90,10 +102,10 @@ public:
 	using active = active_f;
 	using UNPARSED_LIST = TLIST<EOL>;
 
-	bool _match(context&);
-	void _undo(context&);
-	std::string name() const;
-	bool dbg_inline() const;
+	constexpr bool _match(context&){return true;};
+	constexpr void _undo(context&) {};
+	inline std::string name() const {return "";}
+	constexpr bool dbg_inline() const {return false;}
 };
 template<typename parser>
 class parse_object_ref : public parse_object {
@@ -132,7 +144,7 @@ public:
 	}
 };
 template<typename F_TYPE> requires std::invocable<F_TYPE,context&>
-parser auto f_parser(F_TYPE&& f, bool dbg_inline=false, std::string comment=""){
+parser auto f_parser(F_TYPE&& f){
 	auto ret = f_parser_t<F_TYPE>{std::forward<F_TYPE>(f)};
 	return ret;
 }
@@ -146,7 +158,7 @@ template<parser T1, parser T2>
 struct simple_or_parser : public bi_comb<T1,T2> {
 	using parent_t = bi_comb<T1,T2>;
 	bool _match(context& ctx) {
-		return match(ctx,parent_t::t1) || match(ctx,parent_t::t2);
+		return match_or_undo(ctx,parent_t::t1) || match(ctx,parent_t::t2);
 	};
 	bool dbg_inline(){
 		return true;

@@ -28,8 +28,8 @@ struct nr_parser : public parse_object {
 	using UNPARSED_LIST = TLIST<UNPARSED...>;
 	using active = active_f;
 
-	REM parent;
-	unp f;
+	[[no_unique_address]] REM parent;
+	[[no_unique_address]] unp f;
 
 	nr_parser(unp&& f, REM& parent) :
 		parent(std::forward<REM>(parent)),
@@ -93,8 +93,8 @@ auto create_join_parser(auto&& p1, auto&& p2, TLIST<A1...>,TLIST<A2...>){
 		struct join_p : public parse_object {
 			using active = active_t;
 			using UNPARSED_LIST = TLIST<A1...>;
-			P1 p1;
-			P2 p2;
+			[[no_unique_address]] P1 p1;
+			[[no_unique_address]] P2 p2;
 			join_p(P1&& p1, P2&& p2) :
 				p1(std::forward<P1>(p1)),
 				p2(std::forward<P2>(p2))
@@ -118,8 +118,8 @@ auto create_join_parser(auto&& p1, auto&& p2, TLIST<A1...>,TLIST<A2...>){
 		struct join_p : public parse_object {
 			using active = active_t;
 			using UNPARSED_LIST = TLIST<A2...>;
-			P1 p1;
-			P2 p2;
+			[[no_unique_address]] P1 p1;
+			[[no_unique_address]] P2 p2;
 			join_p(P1&& p1, P2&& p2) :
 				p1(std::forward<P1>(p1)),
 				p2(std::forward<P2>(p2))
@@ -143,8 +143,8 @@ auto create_join_parser(auto&& p1, auto&& p2, TLIST<A1...>,TLIST<A2...>){
 		struct join_p : public parse_object {
 			using active = active_t;
 			using UNPARSED_LIST = TLIST<A1...,A2...>;
-			P1 p1;
-			P2 p2;
+			[[no_unique_address]] P1 p1;
+			[[no_unique_address]] P2 p2;
 			join_p(P1&& p1, P2&& p2) :
 				p1(std::forward<P1>(p1)),
 				p2(std::forward<P2>(p2))
@@ -243,8 +243,8 @@ struct or_parser : public parse_object {
 	using UNPARSED_LIST = TLIST<ret_type>;
 	using active = active_t;
 
-	P1 p1;
-	P2 p2;
+	[[no_unique_address]] P1 p1;
+	[[no_unique_address]] P2 p2;
 	or_parser(P1&& op1, P2&& op2) : p1(std::move(op1)), p2(std::move(op2)) {}
 	or_parser(P1&& op1, const P2& op2) : p1(std::move(op1)), p2(op2) {}
 	or_parser(const P1& op1, P2&& op2) : p1(op1), p2(std::move(op2)) {}
@@ -252,20 +252,18 @@ struct or_parser : public parse_object {
 
 	bool _parse(context& ctx, ret_type& ret){
 		auto attempt = [&]<parser T>(T& t) -> bool{
-			auto prev = ctx.pos;
 			if constexpr( rparser<T> ){
-				using h_t = apply_list<hold_normal,typename T::UNPARSED_LIST>::type;
+				using h_t = typename apply_list<hold_normal,typename T::UNPARSED_LIST>::type;
 		
 				h_t h;
 				auto success = h.apply([&](context& ctx, auto&...args){
-					return parse(ctx,t,args...);
+					return parse_or_undo(ctx,t,args...);
 				},ctx);
 				if(success){
 					ret = h.apply([](auto&...args) -> ret_type{
 						return ret_type{args...};
 					});
 				}
-				if(!success)ctx.pos = prev;
 				return success;
 			}else{
 				return match_or_undo(ctx,t);
@@ -326,7 +324,7 @@ auto operator*(P&& p, F&& unparser) {
 	using F_TYPE = f_wrapper<typename std::decay_t<F>,typename invoke_info::ret,typename invoke_info::args>;
 	if constexpr (!std::is_same_v<typename invoke_info::ret,void> && !std::is_same_v<typename invoke_info::ret,VOID>){
 		using ret_args = 
-			typename append_list<TLIST<F_TYPE,P,typename invoke_info::ret>,remaining_types>::type;//TODO reorder return type to back
+			typename append_list<TLIST<F_TYPE,P_t,typename invoke_info::ret>,remaining_types>::type;//TODO reorder return type to back
 		using ret_type = 
 			typename apply_list<nr_parser,ret_args>::type;
 		return ret_type(F_TYPE{std::forward<F>(unparser)},std::forward<P>(p));

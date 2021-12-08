@@ -9,6 +9,14 @@ inline struct plus_t {} plus;
 inline struct not_t {} not_v;
 
 template<parser T>
+parser auto operator>>(plus_t,T&& rhs) {
+	return f_parser([r=std::forward<T>(rhs)](context& ctx) mutable {
+		if(!match(ctx,r))return false;
+		while(match_or_undo(ctx,r) && !ctx.done()){}
+		return true;
+	});
+}
+template<parser T>
 parser auto operator>>(any_t,T&& rhs) {
 	return f_parser([r=std::forward<T>(rhs)](context& ctx) mutable {
 		while(match_or_undo(ctx,r) && !ctx.done()){}

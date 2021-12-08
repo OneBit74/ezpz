@@ -155,7 +155,7 @@ struct invoke_list {
 };
 template<typename L, typename ... ARGS>
 struct get_decay_list {
-	using type = get_decay_list<typename L::rest, ARGS...,typename std::decay_t<typename L::type>>::type;
+	using type = typename get_decay_list<typename L::rest, ARGS...,typename std::decay_t<typename L::type>>::type;
 };
 template<typename ... ARGS>
 struct get_decay_list<TLIST<EOL>,ARGS...> {
@@ -163,7 +163,7 @@ struct get_decay_list<TLIST<EOL>,ARGS...> {
 };
 template<typename L, typename ... ARGS>
 struct get_ref_list {
-	using type = get_ref_list<typename L::rest, ARGS...,typename L::type>::type;
+	using type = typename get_ref_list<typename L::rest, ARGS...,typename L::type>::type;
 };
 template<typename ... ARGS>
 struct get_ref_list<TLIST<EOL>,ARGS...> {

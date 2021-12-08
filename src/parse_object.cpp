@@ -2,10 +2,6 @@
 #include "matcher.hpp"
 #include <iostream>
 
-auto parse_object::name() const -> std::string {return "";}
-auto parse_object::dbg_inline() const -> bool {return false;}
-bool parse_object::_match(context&) {return false;}
-void parse_object::_undo(context&) {};
 
 void dbg_log_enter(context& ctx, std::string_view comment){
 	ctx.indent();
