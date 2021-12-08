@@ -33,14 +33,16 @@ add_library(ezpz
 	src/parse_object.cpp
 	src/matcher.cpp
 	src/helper.cpp)
+include_directories(src)
+
 target_link_libraries(ezpz fmt)
 
-add_executable(redone src/redone.cpp)
-target_link_libraries(redone ezpz)
+add_executable(expr src/examples/arith_expr_repl.cpp)
+target_link_libraries(expr fmt ezpz)
 
-add_executable(main
-	src/parser.cpp)
-target_link_libraries(main fmt ezpz)
+add_executable(xml
+	src/examples/xml.cpp)
+target_link_libraries(xml fmt ezpz)
 
 find_package(GTest REQUIRED)
 add_executable(stest
