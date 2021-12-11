@@ -16,7 +16,7 @@ concept std_adaptor_c = requires(T t, T::value_type val){
 	t.push(val);
 };
 template<typename T>
-concept std_set_c = requires(T t, T::value_type val){
+concept std_set_c = !std_map_c<T> && requires(T t, T::value_type val){
 	t.insert(val);
 };
 
@@ -63,6 +63,7 @@ inline auto print_all = [](auto&...args){
 	std::cout << '\n';
 };
 
-auto ret(auto val){
+template<typename T>
+auto ret(T&& val){
 	return [=](){return val;};
 }
