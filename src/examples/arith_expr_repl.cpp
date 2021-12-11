@@ -1,6 +1,6 @@
 #include "matcher.hpp"
 #include "ezpz.hpp"
-#include "unparser.hpp"
+#include "consumer.hpp"
 #include <cmath>
 #include <iostream>
 #include <fstream>
@@ -34,7 +34,7 @@ void m1(){
 		std::cout << '\n';
 	};
 	auto p = 
-		any >> 
+		any
 			( (capture("operator>>"_p|regex("f_wrapper\\<[^\\>]*\\>"))*print_one*inc_indent)
 			| (capture("("_p|"<"|"[")*print_one*nl*inc_indent*indent)
 			| (capture(")"_p|">"|"]")*dec_indent*nl*indent*print_one)
@@ -50,7 +50,7 @@ int main(){
 
 	auto op_maker_la = [](std::string_view op, auto upper, auto&& operation){
 		return fr_parser<num_t>([op,operation,upper](context& ctx, num_t& num) mutable {
-			return match(ctx,upper*assign(num)+ws+(any >> (op+ws+ref(upper)*
+			return match(ctx,upper*assign(num)+ws+(any(op+ws+ref(upper)*
 					[&](num_t val){
 						std::cout << num << " " << op << " " << val << " = " << operation(num,val) << std::endl;
 						num = operation(num,val);
@@ -76,7 +76,7 @@ int main(){
 	auto p12 = op_maker_la("!=",p11,std::not_equal_to<num_t>());
 
 	auto& last = p12;
-	auto ident = capture("%" | plus >> alpha);
+	auto ident = capture("%" | plus(alpha));
 	std::cout << sizeof(p12) << std::endl;
 	std::unordered_map<std::string,num_t> store;
 	base = 

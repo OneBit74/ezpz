@@ -2,6 +2,7 @@
 #include <string>
 #include <unordered_map>
 #include <regex>
+#include <iostream>
 
 class context {
 public:
@@ -12,9 +13,11 @@ public:
 	std::unordered_map<std::string,std::regex> regex_cache;
 
 	context() = default;
-	context(std::string str);
+	inline context(std::string str) : input(std::move(str)) {}
 
-	inline char get(){return input[pos];}
-	inline bool done(){return pos == input.size();}
-	void indent();
+	inline char get() const {return input[pos];}
+	inline bool done() const {return pos == input.size();}
+	inline void indent() const {
+		for(size_t i = 0; i < depth; ++i)std::cout << '\t';
+	}
 };

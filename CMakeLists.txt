@@ -27,26 +27,18 @@ link_libraries(ubsan)
 find_package(fmt REQUIRED)
 include_directories(fmt)
 
-add_library(ezpz
-	src/context.cpp
-	# src/quantifiers.cpp
-	src/parse_object.cpp
-	src/matcher.cpp
-	src/helper.cpp)
 include_directories(src)
 
-target_link_libraries(ezpz fmt)
-
 add_executable(expr src/examples/arith_expr_repl.cpp)
-target_link_libraries(expr fmt ezpz)
+target_link_libraries(expr fmt)
 
 add_executable(xml
 	src/examples/xml.cpp)
-target_link_libraries(xml fmt ezpz)
+target_link_libraries(xml fmt)
 
 find_package(GTest REQUIRED)
 add_executable(stest
 	src/test.cpp)
-target_link_libraries(stest fmt ${GTEST_BOTH_LIBRARIES} ezpz)
+target_link_libraries(stest fmt ${GTEST_BOTH_LIBRARIES})
 add_dependencies(stest rapidcheck)
 target_link_libraries(stest ${rapidcheck_BINARY_DIR}/librapidcheck.a)

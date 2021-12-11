@@ -32,11 +32,11 @@ inline parser auto text(const std::string_view& sv) {
 	});
 }
 
-inline parser auto operator>>(any_t,std::string_view rhs){
-	return any >> text_parser(rhs);
+inline parser auto any(std::string_view rhs){
+	return any(text_parser(rhs));
 }
-inline parser auto operator>>(not_t, std::string_view rhs){
-	return not_v >> text_parser(rhs);
+inline parser auto notf(std::string_view rhs){
+	return notf(text_parser(rhs));
 }
 /* inline parser auto operator>>(optional_t,std::string_view text) { */
 /* 	return optional >> text_parser(text); */
@@ -91,7 +91,7 @@ inline parser auto graph_letter = f_parser([](context& ctx){
 	}
 	return false;
 });
-inline parser auto string = "\"" + (any >> (not_v >> "\"")) + "\"";
+inline parser auto string = "\"" + any(notf("\"")) + "\"";
 
 template<typename integer, int base>
 auto number = fr_parser<integer>([](context& ctx, integer& ret){

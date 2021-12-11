@@ -20,8 +20,8 @@ int main(){
 		return match(ctx,
 			"<"+ws+(capture(regex("\\w+")) * assign(ret.name)) + ws +">"+ws+
 			(
-				(plus >> (ref(xml_node) * push(ret.children))) |
-				(capture(any >> ((not_v >> "</"_p) + single)) * assign(ret.text_content))
+				plus(ref(xml_node) * insert(ret.children)) |
+				(capture(any(notf("</"_p) + single)) * assign(ret.text_content))
 			) +
 			ws + "</"+ws+text(ret.name)+ws+">");
 	});

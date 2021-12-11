@@ -1,11 +1,12 @@
 #pragma once
 #include "parse_object.hpp"
+#include <iostream>
 
 inline struct print_t {
 	static void print_text(std::string_view sv);
 	parser auto  operator()(std::string_view text){
 		auto ret =  f_parser([=](auto){
-					print_text(text);
+					std::cout << text << std::endl;
 					return true;
 				});
 		return ret;

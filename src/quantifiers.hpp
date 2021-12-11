@@ -1,15 +1,10 @@
 #pragma once
 #include "parse_object.hpp"
 #include "ezpz.hpp"
-#include "r_parser.hpp"
-
-inline struct optional_t {} optional;
-inline struct any_t {} any;
-inline struct plus_t {} plus;
-inline struct not_t {} not_v;
+#include "helper.hpp"
 
 template<parser T>
-parser auto operator>>(plus_t,T&& rhs) {
+parser auto plus(T&& rhs) {
 	return f_parser([r=std::forward<T>(rhs)](context& ctx) mutable {
 		if(!match(ctx,r))return false;
 		while(match_or_undo(ctx,r) && !ctx.done()){}
@@ -17,37 +12,24 @@ parser auto operator>>(plus_t,T&& rhs) {
 	});
 }
 template<parser T>
-parser auto operator>>(any_t,T&& rhs) {
+parser auto any(T&& rhs) {
 	return f_parser([r=std::forward<T>(rhs)](context& ctx) mutable {
 		while(match_or_undo(ctx,r) && !ctx.done()){}
 		return true;
 	});
 }
 template<parser T>
-parser auto operator>>(not_t, T&& rhs){
+parser auto notf(T&& rhs){
 	return f_parser([r=std::forward<T>(rhs)](auto& ctx) mutable {
 		return !match(ctx,r);
 	});
 }
 template<parser T>
-parser auto operator>>(optional_t,T&& rhs) {
-	auto ret = std::forward<T>(rhs) | (not_v >> fail);
+parser auto optional(T&& rhs) {
+	auto ret = std::forward<T>(rhs) | notf(fail);
 	return ret;
 }
 
-/* template<parser T> */
-/* parser auto operator>>(optional_t,T&& rhs) { */
-/* 	return f_parser([r=std::forward<T>(rhs)](context& ctx){ */
-/* 		c.match(ctx); */
-/* 		return true; */
-/* 	} */
-/* } */
-
-/* auto operator>>(plus_t, parse_object_ref rhs) -> parse_object_ref; */
-/* auto operator>>(plus_t,std::string_view text) -> parse_object_ref; */
-
-/* auto operator>>(not_t, parse_object_ref rhs) -> parse_object_ref; */
-/* auto operator>>(not_t, std::string_view rhs) -> parse_object_ref; */
 
 /* struct max_t { */
 /* 	int val; */
@@ -68,4 +50,4 @@ parser auto operator>>(optional_t,T&& rhs) {
 /* auto min(int val) -> min_t; */
 /* auto max(int val) -> max_t; */
 /* auto minmax(int val1, int val2) -> minmax_t; */
-/* auto exact(int val) -> minmax_t; */
+/* auto times(int val) -> minmax_t; */
