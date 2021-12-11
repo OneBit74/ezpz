@@ -1,6 +1,4 @@
-#include "matcher.hpp"
-#include "ezpz.hpp"
-#include "consumer.hpp"
+#include "ezpz/ezpz.hpp"
 #include <cmath>
 #include <iostream>
 #include <fstream>

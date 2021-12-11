@@ -1,13 +1,10 @@
 #pragma once
 #include "parse_object.hpp"
-/* #include "r_parser.hpp" */
 #include "context.hpp"
 #include "quantifiers.hpp"
 #include <fmt/core.h>
 #include <regex>
 
-/* ret_parse_object<std::string_view> match(std::string_view pattern); */
-/* ret_parse_object<std::string_view> until(std::string_view pattern); */
 
 inline parser auto text_parser(std::string_view sv) {
 	return f_parser([=]
@@ -38,9 +35,6 @@ inline parser auto any(std::string_view rhs){
 inline parser auto notf(std::string_view rhs){
 	return notf(text_parser(rhs));
 }
-/* inline parser auto operator>>(optional_t,std::string_view text) { */
-/* 	return optional >> text_parser(text); */
-/* } */
 template<parser T>
 parser auto operator|(T&& rhs, std::string_view sv){
 	return std::forward<T>(rhs) | text_parser(sv);

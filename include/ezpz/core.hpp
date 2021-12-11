@@ -1,6 +1,6 @@
 #pragma once
-#include "parse_object.hpp"
-#include "meta.hpp"
+#include "ezpz/parse_object.hpp"
+#include "ezpz/meta.hpp"
 #include <variant>
 #include <optional>
 #include <tuple>

@@ -1,7 +1,7 @@
 #pragma once
-#include "parse_object.hpp"
-#include "ezpz.hpp"
-#include "helper.hpp"
+#include "ezpz/core.hpp"
+#include "ezpz/parse_object.hpp"
+#include "ezpz/helper.hpp"
 
 template<parser T>
 parser auto plus(T&& rhs) {

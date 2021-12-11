@@ -27,18 +27,17 @@ link_libraries(ubsan)
 find_package(fmt REQUIRED)
 include_directories(fmt)
 
-include_directories(src)
+include_directories(include)
 
-add_executable(expr src/examples/arith_expr_repl.cpp)
+add_executable(expr examples/arith_expr_repl.cpp)
 target_link_libraries(expr fmt)
 
-add_executable(xml
-	src/examples/xml.cpp)
+add_executable(xml examples/xml.cpp)
 target_link_libraries(xml fmt)
 
 find_package(GTest REQUIRED)
 add_executable(stest
-	src/test.cpp)
+	test/test.cpp)
 target_link_libraries(stest fmt ${GTEST_BOTH_LIBRARIES})
 add_dependencies(stest rapidcheck)
 target_link_libraries(stest ${rapidcheck_BINARY_DIR}/librapidcheck.a)
