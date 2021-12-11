@@ -18,6 +18,30 @@ auto copy(auto&& val){
 	auto cp = val;
 	return cp;
 }
+
+template<typename parser>
+class parse_object_ref : public parse_object {
+public:
+	using active = typename parser::active;
+	using UNPARSED_LIST = typename parser::UNPARSED_LIST;
+
+	parser& p;
+	parse_object_ref(parser& op) : p(op) {}
+
+	bool _match(context& ctx) {
+		return p._match(ctx);
+	}
+	void _undo(context& ctx) {
+		p._undo(ctx);
+	}
+	bool _parse(context& ctx, auto&...args) requires rparser<parser>{
+		return parse(ctx,p,args...);
+	}
+	bool dbg_inline(){
+		return true;
+	}
+};
+
 parser auto ref(auto& p){
 	using inner = std::decay_t<decltype(p)>;
 	return parse_object_ref<inner>{p};

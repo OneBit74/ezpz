@@ -148,6 +148,7 @@ struct invoke_list {
 			std::is_invocable_v<F,ARGS...>,TLIST,ARGS...>::type,
 		typename invoke_list<F,typename L::rest,  ARGS...,typename L::type>::args
 	>::type;
+	/* print_types<F,L,ARGS...,args> asd; */
 	using ret = typename instantiate_if_inner<
 		!std::is_same_v<args,VOID>,
 		invoke_list_get_ret,F,args

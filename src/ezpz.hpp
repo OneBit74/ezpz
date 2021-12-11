@@ -39,6 +39,11 @@ struct nr_parser : public parse_object {
 		parent(std::forward<REM>(parent)),
 		f(std::forward<unp>(f))
 	{};
+	void _undo(context& ctx){
+		if constexpr ( !std::is_same_v<REM,VOID> ) {
+			parent._undo(ctx);
+		}
+	}
 	bool _parse(context& ctx, UNPARSED&...up_args){
 		if constexpr(std::is_same_v<REM,VOID>){
 			return true;
@@ -99,6 +104,10 @@ auto create_join_parser(auto&& p1, auto&& p2, TLIST<A1...>,TLIST<A2...>){
 				p1(std::forward<P1>(p1)),
 				p2(std::forward<P2>(p2))
 			{}
+			void _undo(context& ctx){
+				p2._undo(ctx);
+				p1._undo(ctx);
+			}
 			bool _parse(context& ctx,A1&...a1) {
 				return parse(ctx,p1,a1...) && match(ctx,p2);
 			}
@@ -124,6 +133,10 @@ auto create_join_parser(auto&& p1, auto&& p2, TLIST<A1...>,TLIST<A2...>){
 				p1(std::forward<P1>(p1)),
 				p2(std::forward<P2>(p2))
 			{}
+			void _undo(context& ctx){
+				p2._undo(ctx);
+				p1._undo(ctx);
+			}
 			bool _parse(context& ctx,A2&...a2) {
 				return match(ctx,p1) && parse(ctx,p2,a2...);
 			}
@@ -149,6 +162,10 @@ auto create_join_parser(auto&& p1, auto&& p2, TLIST<A1...>,TLIST<A2...>){
 				p1(std::forward<P1>(p1)),
 				p2(std::forward<P2>(p2))
 			{}
+			void _undo(context& ctx){
+				p2._undo(ctx);
+				p1._undo(ctx);
+			}
 			bool _parse(context& ctx,A1&...a1,A2&...a2) {
 				return parse(ctx,p1,a1...) && parse(ctx,p2,a2...);
 			}
@@ -319,6 +336,7 @@ auto operator*(P&& p, F&& unparser) {
 	using P_t = std::decay_t<P>;
 	using invoke_info = invoke_list<F,typename get_ref_list<typename P_t::UNPARSED_LIST>::type>;
 	using invoke_args = typename invoke_info::args;
+	static_assert(!std::is_same_v<invoke_args,VOID>,"unparser callback is not callable by any of the available values");
 	using remaining_types = 
 		typename pop_n<list_size<invoke_args>::value,typename P_t::UNPARSED_LIST>::type;
 	using F_TYPE = f_wrapper<typename std::decay_t<F>,typename invoke_info::ret,typename invoke_info::args>;
@@ -337,6 +355,7 @@ auto operator*(P&& p, F&& unparser) {
 	}
 }
 static_assert(std::is_same_v<invoke_list<std::function<void(int&,int&)>,TLIST<int&,int&>>::args,TLIST<int&,int&>>);
+/* static_assert(std::is_same_v<invoke_list<std::function<void(int&&)>,TLIST<int>>::args,TLIST<int>>); */
 
 template<typename F_TYPE, typename ... ARGS>
 struct fr_parser_t : public parse_object {
@@ -362,6 +381,8 @@ struct rpo : public parse_object{
 	f_type f;
 
 	rpo() = default;
+	rpo(const rpo&) = delete;
+	rpo(rpo&&) = delete;
 
 	template<typename F> requires std::invocable<F,context&,UNPARSED&...>
 	rpo(F&& f) {
@@ -371,7 +392,11 @@ struct rpo : public parse_object{
 	template<parser T>
 	void operator=(T&& p){
 		f = [p = std::forward<T>(p)](context& ctx, auto&...up_args) mutable -> bool {
+			if constexpr (rparser<T>){
 				return parse(ctx,p,up_args...);
+			}else{
+				return match(ctx,p);
+			}
 		};
 	}
 
