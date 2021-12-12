@@ -4,11 +4,11 @@
 #include <rapidcheck/gtest.h>
 
 TEST(ezpz,done){
-	context ctx;
+	basic_context ctx;
 	EXPECT_TRUE(ctx.done());
 }
 TEST(ezpz,ws){
-	context ctx;
+	basic_context ctx;
 	ctx.input = "   \t \t \n\t\n  ";
 	EXPECT_TRUE(match(ctx,ws));
 	EXPECT_TRUE(ctx.done());
@@ -50,55 +50,55 @@ TEST(ezpz,ret){
 }
 TEST(quantifiers,any){
 	{
-		context ctx("aaaa");
+		basic_context ctx("aaaa");
 		EXPECT_TRUE(match(ctx,any("a"_p)));
 		EXPECT_TRUE(ctx.done());
 	}
 	{
-		context ctx("");
+		basic_context ctx("");
 		EXPECT_TRUE(match(ctx,any("a"_p)));
 		EXPECT_TRUE(ctx.done());
 	}
 	{
-		context ctx("bbbb");
+		basic_context ctx("bbbb");
 		EXPECT_TRUE(match(ctx,any("a"_p)));
 		EXPECT_FALSE(ctx.done());
 	}
 	{
-		context ctx("aabb");
+		basic_context ctx("aabb");
 		EXPECT_TRUE(match(ctx,any("a"_p)));
 		EXPECT_FALSE(ctx.done());
 	}
 	{
-		context ctx("bbaa");
+		basic_context ctx("bbaa");
 		EXPECT_TRUE(match(ctx,any("a"_p)));
 		EXPECT_FALSE(ctx.done());
 	}
 }
 TEST(quantifiers,plus){
 	{
-		context ctx("");
+		basic_context ctx("");
 		EXPECT_FALSE(match(ctx,plus("a"_p)));
 	}
 	{
-		context ctx("a");
+		basic_context ctx("a");
 		EXPECT_TRUE(match(ctx,plus("a"_p)));
 		EXPECT_TRUE(ctx.done());
 	}
 	{
-		context ctx("aaa");
+		basic_context ctx("aaa");
 		EXPECT_TRUE(match(ctx,plus("a"_p)));
 		EXPECT_TRUE(ctx.done());
 	}
 }
 TEST(quantifiers,optional){
 	{
-		context ctx("abcdefghc");
+		basic_context ctx("abcdefghc");
 		EXPECT_TRUE(match(ctx,"abc"+optional("def"_p)+"ghc"));
 		EXPECT_TRUE(ctx.done());
 	}
 	{
-		context ctx("abcghc");
+		basic_context ctx("abcghc");
 		EXPECT_TRUE(match(ctx,"abc"+optional("def"_p)+"ghc"));
 		EXPECT_TRUE(ctx.done());
 	}
@@ -108,7 +108,7 @@ TEST(quantifiers,not){
 	EXPECT_FALSE(match("a",notf("a"_p)));
 }
 TEST(core,match_or_undo){
-	context ctx("123 wasd");
+	basic_context ctx("123 wasd");
 	EXPECT_FALSE(match_or_undo(ctx,"123 wast"_p));
 	EXPECT_EQ(ctx.pos,0);
 	EXPECT_FALSE(ctx.done());
@@ -127,7 +127,7 @@ TEST(helper,fail){
 	EXPECT_FALSE(match("",fail));
 }
 TEST(helper,rpo_recursion){
-	rpo<> parser;
+	basic_rpo<> parser;
 	parser = "a"+optional(ref(parser));
 	EXPECT_TRUE(match("aaaaaaaaaaaaaaaa",ref(parser)+eoi));
 	EXPECT_TRUE(match("aaa",ref(parser)+eoi));
@@ -135,7 +135,7 @@ TEST(helper,rpo_recursion){
 }
 TEST(helper,capture){
 	std::string_view subtext;
-	context ctx("abcdefghi");
+	basic_context ctx("abcdefghi");
 	EXPECT_TRUE(match(ctx,"abc"+capture("def"_p)*assign(subtext)+"ghi"));
 	EXPECT_EQ(subtext,"def");
 }
@@ -144,7 +144,7 @@ TEST(helper,ref){
 	auto r_p = ref(my_parser);
 	auto rr_p = ref(r_p);
 	auto rrr_p = ref(rr_p);
-	context ctx("123 456");
+	basic_context ctx("123 456");
 	EXPECT_TRUE(match(ctx,r_p));
 	ctx.pos = 0;
 	EXPECT_TRUE(match(ctx,rrr_p));
@@ -179,14 +179,14 @@ RC_GTEST_PROP(ezpz,simple_list_parser,(std::vector<int> vec)){
 		oss << x << ", ";
 	}
 	std::vector<int> unparsed;
-	context ctx(oss.str());
+	basic_context ctx(oss.str());
 	match(ctx,any(decimal<int> * insert(unparsed) + ", "));
 
 	RC_ASSERT(vec == unparsed);
 	RC_ASSERT(ctx.done());
 }
 RC_GTEST_PROP(ezpz,decimal_parse_identity,(long long val)){
-	context ctx;
+	basic_context ctx;
 	ctx.input = std::to_string(val);
 	long long parsed = -1;
 	match(ctx,decimal<long long> * assign(parsed));
@@ -194,7 +194,7 @@ RC_GTEST_PROP(ezpz,decimal_parse_identity,(long long val)){
 	RC_ASSERT(ctx.done());
 }
 RC_GTEST_PROP(ezpz,text_parse_identity,(std::string s)){
-	context ctx;
+	basic_context ctx;
 	ctx.input = s;
 	RC_ASSERT(match(ctx,text(s)));
 	RC_ASSERT(ctx.done());

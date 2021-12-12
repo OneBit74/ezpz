@@ -3,14 +3,13 @@
 
 
 int main(){
-	context ctx;
 	
 	struct node {
 		std::string_view name;
 		std::vector<node> children;
 		std::string_view text_content;
 	};
-	rpo<node> xml_node;
+	basic_rpo<node> xml_node;
 	xml_node = fr_parser<node>([&](auto& ctx, node& ret){
 		return match(ctx,
 			"<"+ws+(capture(regex("\\w+")) * assign(ret.name)) + ws +">"+ws+
@@ -24,8 +23,8 @@ int main(){
 
 
 	node root;
+	basic_context ctx("<hey><p>This is</p><b>xml</b></hey>");
 	ctx.debug = true;
-	ctx.input = "<hey><p>This is</p><b>xml</b></hey>";
 	match(ctx,ref(xml_node) * assign(root)+eoi | print("error"));
 	std::cout << root.name << std::endl;
 	std::cout << root.children.size() << std::endl;

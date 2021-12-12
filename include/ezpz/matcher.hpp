@@ -8,22 +8,22 @@
 
 inline parser auto text_parser(std::string_view sv) {
 	return f_parser([=]
-		(context& ctx){
+		(auto& ctx){
 			for(char c : sv){
 				if(ctx.done())return false;
-				char i = ctx.get();
+				char i = ctx.token();
 				if(i != c)return false;
-				++ctx.pos;
+				ctx.advance();
 			}
 			return true;
 		}
 	);
 }
 inline parser auto text(const std::string_view& sv) {
-	return f_parser([&](context& ctx){
+	return f_parser([&](auto& ctx){
 		for(size_t i = 0; i < sv.size(); ++i){
-			if(sv[i] != ctx.get())return false;
-			++ctx.pos;
+			if(sv[i] != ctx.token())return false;
+			ctx.advance();
 		}
 		return true;
 	});
@@ -55,9 +55,9 @@ inline auto operator "" _p(const char* s, size_t len){
 	return text_parser(std::string_view{s,len});
 }
 
-inline auto ws = f_parser([](context& ctx){
+inline auto ws = f_parser([](basic_context_c auto& ctx){
 	while(!ctx.done()){
-		switch(ctx.get()){
+		switch(ctx.token()){
 		case ' ':
 		case '\t':
 		case '\n':
@@ -69,17 +69,17 @@ inline auto ws = f_parser([](context& ctx){
 	}
 	return true;
 });
-inline parser auto digit = f_parser([](context& ctx){
+inline parser auto digit = f_parser([](basic_context_c auto& ctx){
 	if(ctx.done())return false;
-	if(std::isdigit(ctx.get())){
+	if(std::isdigit(ctx.token())){
 		++ctx.pos;
 		return true;
 	}
 	return false;
 });
-inline parser auto graph_letter = f_parser([](context& ctx){
+inline parser auto graph_letter = f_parser([](auto& ctx){
 	if(ctx.done())return false;
-	if(std::isgraph(ctx.get())){
+	if(std::isgraph(ctx.token())){
 		++ctx.pos;
 		return true;
 	}
@@ -88,36 +88,36 @@ inline parser auto graph_letter = f_parser([](context& ctx){
 inline parser auto string = "\"" + any(notf("\"")) + "\"";
 
 template<typename integer, int base>
-auto number = fr_parser<integer>([](context& ctx, integer& ret){
+auto number = fr_parser<integer>([](basic_context_c auto& ctx, integer& ret){
 	static_assert(base <= 10);
 	static_assert(base >= 2);
 	if(ctx.done())return false;
 	bool negative = false;
-	if(ctx.get() == '-'){
+	if(ctx.token() == '-'){
 		negative = true;
 		++ctx.pos;
-	}else if(ctx.get() == '+'){
+	}else if(ctx.token() == '+'){
 		++ctx.pos;
 	}
 	if(ctx.done())return false;
 	ret = 0;
 	bool invalid = true;
-	while(!ctx.done() && std::isdigit(ctx.get())){
+	while(!ctx.done() && std::isdigit(ctx.token())){
 		invalid = false;
 		ret *= base;
-		ret += ctx.get()-'0';
+		ret += ctx.token()-'0';
 		++ctx.pos;
 	}
 	if(invalid)return false;
 	if constexpr(std::floating_point<integer>){
-		if(ctx.get() == '.'){
+		if(ctx.token() == '.'){
 			++ctx.pos;
 			invalid = true;
 			integer alpha = 1;
-			while(!ctx.done() && std::isdigit(ctx.get())){
+			while(!ctx.done() && std::isdigit(ctx.token())){
 				invalid = false;
 				alpha /= base;
-				ret += (ctx.get()-'0')*alpha;
+				ret += (ctx.token()-'0')*alpha;
 				++ctx.pos;
 			}
 			if(invalid)return false;
@@ -131,23 +131,23 @@ template<typename integer>
 auto& decimal = number<integer,10>;
 
 inline struct alpha_p : public parse_object {
-	bool _match(context& ctx){
+	bool _match(basic_context_c auto& ctx){
 		if(ctx.done())return false;
-		auto ret = isalpha(ctx.get());
-		ctx.pos++;
+		auto ret = isalpha(ctx.token());
+		ctx.advance();
 		return ret;
 	}
 } alpha;
 inline struct single_p : public parse_object {
-	bool _match(context& ctx){
+	bool _match(auto& ctx){
 		if(ctx.done())return false;
-		ctx.pos++;
+		ctx.advance();
 		return true;
 	}
 } single;
 
 inline auto regex(std::string_view pattern){
-	return fr_parser<std::string_view>([=](context& ctx, std::string_view& output){
+	return fr_parser<std::string_view>([=](basic_context& ctx, std::string_view& output){
 		const std::string str{pattern};
 		auto [regex_iter,b] = ctx.regex_cache.try_emplace(str,str);
 		std::smatch match;

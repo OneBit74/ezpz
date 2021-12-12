@@ -9,7 +9,7 @@ void m1(){
 	buffer << t.rdbuf();
 
 	/* context ctx("asd(asd<fd[asd,asd]>)"); */
-	context ctx(buffer.str());
+	basic_context ctx(buffer.str());
 	/* ctx.debug = true; */
 
 	auto level = 0;
@@ -47,7 +47,7 @@ int main(){
 	using num_t = float;
 
 	auto op_maker_la = [](std::string_view op, auto upper, auto&& operation){
-		return fr_parser<num_t>([op,operation,upper](context& ctx, num_t& num) mutable {
+		return fr_parser<num_t>([op,operation,upper](basic_context& ctx, num_t& num) mutable {
 			return match(ctx,upper*assign(num)+ws+(any(op+ws+ref(upper)*
 					[&](num_t val){
 						std::cout << num << " " << op << " " << val << " = " << operation(num,val) << std::endl;
@@ -56,7 +56,7 @@ int main(){
 			)));
 		});
 	};
-	rpo<num_t> base;
+	basic_rpo<num_t> base;
 	auto p0 = op_maker_la("^",ref(base),[](auto a, auto b){
 		return std::pow(a,b);
 	});
@@ -96,7 +96,7 @@ int main(){
 		std::string line;
 		std::getline(std::cin,line);
 		if(std::cin.eof())break;
-		context ctx(line);
+		basic_context ctx(line);
 		match(ctx,(assignment | (expr*[&](auto val){store["%"] = val; std::cout << val << std::endl;}) | print("error")));
 	}
 

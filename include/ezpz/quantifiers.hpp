@@ -5,7 +5,7 @@
 
 template<parser T>
 parser auto plus(T&& rhs) {
-	return f_parser([r=std::forward<T>(rhs)](context& ctx) mutable {
+	return f_parser([r=std::forward<T>(rhs)](auto& ctx) mutable {
 		if(!match(ctx,r))return false;
 		while(match_or_undo(ctx,r) && !ctx.done()){}
 		return true;
@@ -13,13 +13,13 @@ parser auto plus(T&& rhs) {
 }
 template<parser T>
 parser auto any(T&& rhs) {
-	return f_parser([r=std::forward<T>(rhs)](context& ctx) mutable {
+	return f_parser([r=std::forward<T>(rhs)](auto& ctx) mutable {
 		while(match_or_undo(ctx,r) && !ctx.done()){}
 		return true;
 	});
 }
-template<parser T>
-parser auto notf(T&& rhs){
+template<typename T>
+parser auto notf(T&& rhs) requires parser<std::decay_t<T>>{
 	return f_parser([r=std::forward<T>(rhs)](auto& ctx) mutable {
 		return !match(ctx,r);
 	});

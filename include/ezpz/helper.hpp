@@ -12,15 +12,15 @@ inline struct print_t {
 		return ret;
 	};
 } print;
-inline parser auto fail = f_parser([](auto){return false;});
-inline parser auto eoi = f_parser([](context& ctx){return ctx.done();});
+inline parser auto fail = f_parser([](auto&){return false;});
+inline parser auto eoi = f_parser([](auto& ctx){return ctx.done();});
 
 auto copy(auto&& val){
 	auto cp = val;
 	return cp;
 }
 
-template<typename parser>
+template<parser parser>
 class parse_object_ref : public parse_object {
 public:
 	using active = typename parser::active;
@@ -29,13 +29,13 @@ public:
 	parser& p;
 	parse_object_ref(parser& op) : p(op) {}
 
-	bool _match(context& ctx) {
+	bool _match(auto& ctx) {
 		return p._match(ctx);
 	}
-	void _undo(context& ctx) {
+	void _undo(auto& ctx) {
 		p._undo(ctx);
 	}
-	bool _parse(context& ctx, auto&...args) requires rparser<parser>{
+	bool _parse(auto& ctx, auto&...args) requires rparser<parser>{
 		return parse(ctx,p,args...);
 	}
 	bool dbg_inline(){
@@ -56,13 +56,13 @@ struct capture_t : public parse_object {
 	P parent;
 	capture_t(P&& op) : parent(std::move(op)) {}
 	capture_t(const P& op) : parent(op) {}
-	bool _parse(context& ctx, std::string_view& sv){
+	bool _parse(auto& ctx, std::string_view& sv){
 		auto start = ctx.pos;
 		auto ret = match(ctx,parent);
 		sv = std::string_view{ctx.input.c_str()+start,ctx.pos-start};
 		return ret;
 	}
-	bool _match(context& ctx){
+	bool _match(auto& ctx){
 		return match(ctx,parent);
 	}
 	bool dbg_inline(){

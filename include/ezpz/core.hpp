@@ -39,12 +39,12 @@ struct nr_parser : public parse_object {
 		parent(std::forward<REM>(parent)),
 		f(std::forward<unp>(f))
 	{};
-	void _undo(context& ctx){
+	void _undo(auto& ctx){
 		if constexpr ( !std::is_same_v<REM,VOID> ) {
 			parent._undo(ctx);
 		}
 	}
-	bool _parse(context& ctx, UNPARSED&...up_args){
+	bool _parse(auto& ctx, UNPARSED&...up_args){
 		if constexpr(std::is_same_v<REM,VOID>){
 			return true;
 		}else{
@@ -83,108 +83,82 @@ struct nr_parser : public parse_object {
 			}
 		}
 	}
-	bool _match(context& ctx) {
+	bool _match(auto& ctx) {
 		using hold_args = typename reverse_list<TLIST<UNPARSED...>>::type;
 		using hold_type = typename instantiate_list<hold,hold_args>::type;
 		hold_type h;
 		return h.apply([&](UNPARSED&...u_args){return this->_parse(ctx,u_args...);});
 	}
 };
-template<typename...A1,typename...A2>
-auto create_join_parser(auto&& p1, auto&& p2, TLIST<A1...>,TLIST<A2...>){
-	using P1 = std::decay_t<decltype(p1)>;
-	using P2 = std::decay_t<decltype(p2)>;
-	if constexpr (std::is_same_v<TLIST<A2...>,TLIST<EOL>>){
-		struct join_p : public parse_object {
-			using active = active_t;
-			using UNPARSED_LIST = TLIST<A1...>;
-			[[no_unique_address]] P1 p1;
-			[[no_unique_address]] P2 p2;
-			join_p(P1&& p1, P2&& p2) :
-				p1(std::forward<P1>(p1)),
-				p2(std::forward<P2>(p2))
-			{}
-			void _undo(context& ctx){
-				p2._undo(ctx);
-				p1._undo(ctx);
-			}
-			bool _parse(context& ctx,A1&...a1) {
-				return parse(ctx,p1,a1...) && match(ctx,p2);
-			}
-			bool _match(context& ctx) {
-				hold_normal<A1...> h;
-				return h.apply([self=this](context& ctx,A1&...a1) mutable {
-						return self->_parse(ctx,a1...);
-					},ctx);
-			}
-			bool dbg_inline() const {
-				return true;
-			}
-		};
-		auto ret = join_p{std::forward<P1>(p1),std::forward<P2>(p2)};
-		return ret;
-	}else if constexpr( std::is_same_v<TLIST<A1...>,TLIST<EOL>>){
-		struct join_p : public parse_object {
-			using active = active_t;
-			using UNPARSED_LIST = TLIST<A2...>;
-			[[no_unique_address]] P1 p1;
-			[[no_unique_address]] P2 p2;
-			join_p(P1&& p1, P2&& p2) :
-				p1(std::forward<P1>(p1)),
-				p2(std::forward<P2>(p2))
-			{}
-			void _undo(context& ctx){
-				p2._undo(ctx);
-				p1._undo(ctx);
-			}
-			bool _parse(context& ctx,A2&...a2) {
-				return match(ctx,p1) && parse(ctx,p2,a2...);
-			}
-			bool _match(context& ctx) {
-				hold_normal<A2...> h;
-				return h.apply([self=this](context& ctx,A2&...a2) mutable {
-						return self->_parse(ctx,a2...);
-				},ctx);
-			}
-			bool dbg_inline() const {
-				return true;
-			}
-		};
-		auto ret = join_p{std::forward<P1>(p1),std::forward<P2>(p2)};
-		return ret;
+
+template<typename...ARGS>
+struct takefront_and_call{
+	static auto call(auto&& target, ARGS&&...args, auto&&...){
+		return target(args...);
+	}
+};
+
+template<int how_many>
+auto takeback_and_call(auto&& target, auto&&...args){
+	static_assert(sizeof...(args) >= how_many, "not enough arguments to parse");
+	if constexpr(how_many == 0){
+		return target();
 	}else{
-		struct join_p : public parse_object {
-			using active = active_t;
-			using UNPARSED_LIST = TLIST<A1...,A2...>;
-			[[no_unique_address]] P1 p1;
-			[[no_unique_address]] P2 p2;
-			join_p(P1&& p1, P2&& p2) :
-				p1(std::forward<P1>(p1)),
-				p2(std::forward<P2>(p2))
-			{}
-			void _undo(context& ctx){
-				p2._undo(ctx);
-				p1._undo(ctx);
-			}
-			bool _parse(context& ctx,A1&...a1,A2&...a2) {
-				return parse(ctx,p1,a1...) && parse(ctx,p2,a2...);
-			}
-			bool _match(context& ctx) {
-				hold_normal<A1...,A2...> h;
-				return h.apply([self=this](context& ctx,A1&...a1,A2&...a2) mutable {
-						return self->_parse(ctx,a1...,a2...);
-				},ctx);
-		
-			}
-			bool dbg_inline() const {
-				return true;
-			}
+		return takeback_and_call_hlp<how_many>(target,args...);
+	}
+}
+template<int how_many>
+auto takeback_and_call_hlp(auto&& target, auto&& first, auto&&...args){
+	if constexpr(1+sizeof...(args) != how_many){
+		return takeback_and_call_hlp<how_many>(target,args...);
+	}else{
+		return target(first,args...);
+	}
+}
+
+template<parser LHS, parser RHS>
+struct join_p : public parse_object {
+	using UNPARSED_LIST = typename append_list<typename LHS::UNPARSED_LIST, typename RHS::UNPARSED_LIST>::type;
+	using active = active_t;
+	LHS lhs;
+	RHS rhs;
+	join_p(LHS&& p1, RHS&& p2) :
+		lhs(std::forward<LHS>(p1)),
+		rhs(std::forward<RHS>(p2))
+	{}
+	
+	template<typename...ARGS>
+	bool _parse(auto& ctx, ARGS&...args){
+		using L = TLIST<ARGS...>;
+		auto cb_lhs = [&](auto&...few_args){
+				return parse(ctx,lhs,few_args...);
 		};
-		auto ret = join_p{std::forward<P1>(p1),std::forward<P2>(p2)};
+		auto cb_rhs = [&](auto&...few_args){
+				return parse(ctx,rhs,few_args...);
+		};
+		using front_t = typename instantiate_list<takefront_and_call, typename get_ref_list<typename LHS::UNPARSED_LIST>::type>::type;
+		auto ret = front_t::call(cb_lhs,args...);
+		/* auto ret = takefront_and_call<list_size<typename LHS::UNPARSED_LIST>::value>(cb_lhs,args...); */
+		if(!ret)return false;
+		ret = takeback_and_call<list_size<typename RHS::UNPARSED_LIST>::value>(cb_rhs,args...);
 		return ret;
 	}
+	bool _match(auto& ctx){
+		using hold_t = typename instantiate_list<hold_normal, UNPARSED_LIST>::type;
+		hold_t h;
+		return h.apply([self=this](auto& ctx,auto&...a1) mutable {
+				return self->_parse(ctx,a1...);
+		},ctx);
+	}
+	void _undo(auto& ctx){
+		rhs._undo(ctx);
+		lhs._undo(ctx);
+	}
 
-}
+	bool dbg_inline() const {
+		return true;
+	}
+};
 
 
 template<typename parser>
@@ -208,7 +182,7 @@ struct forget : public parse_object {
 	forget(parser& op) : p(op) {};
 	forget(parser&& op) : p(std::move(op)) {};
 	
-	bool _match(context& ctx){
+	bool _match(auto& ctx){
 		return match(ctx,p);
 	}
 	bool dbg_inline(){
@@ -267,13 +241,13 @@ struct or_parser : public parse_object {
 	or_parser(const P1& op1, P2&& op2) : p1(op1), p2(std::move(op2)) {}
 	or_parser(const P1& op1, const P2& op2) : p1(op1), p2(op2) {}
 
-	bool _parse(context& ctx, ret_type& ret){
+	bool _parse(auto& ctx, ret_type& ret){
 		auto attempt = [&]<parser T>(T& t) -> bool{
 			if constexpr( rparser<T> ){
 				using h_t = typename apply_list<hold_normal,typename T::UNPARSED_LIST>::type;
 		
 				h_t h;
-				auto success = h.apply([&](context& ctx, auto&...args){
+				auto success = h.apply([&](auto& ctx, auto&...args){
 					return parse_or_undo(ctx,t,args...);
 				},ctx);
 				if(success){
@@ -288,7 +262,7 @@ struct or_parser : public parse_object {
 		};
 		return attempt(p1) || attempt(p2);
 	}
-	bool _match(context& ctx){
+	bool _match(auto& ctx){
 		using hold_type = typename instantiate_list<hold,UNPARSED_LIST>::type;
 		hold_type h;
 		return h.apply([&](auto&...u_args){return this->_parse(ctx,u_args...);});
@@ -312,18 +286,13 @@ parser auto operator+(P1&& p1, P2&& p2){
 	if constexpr( std::is_same_v<P2_t,const char*> ){
 		return p1 + text_parser(p2);
 	} else if constexpr(std::is_same_v<active_t,typename P1_t::active> && std::is_same_v<active_t,typename P2_t::active>){
-		return create_join_parser(p1,p2,typename P1_t::UNPARSED_LIST{},typename P2_t::UNPARSED_LIST{});
+		return join_p<P1_t,P2_t>{std::forward<P1_t>(p1),std::forward<P2_t>(p2)};
 	} else if constexpr(std::is_same_v<active_t,typename P1_t::active> && !std::is_same_v<active_t,typename P2_t::active>){
-		return create_join_parser(p1,
-				forget{std::forward<P2>(p2)},
-				typename P1_t::UNPARSED_LIST{},
-				TLIST<EOL>{});
+		using forget_t = forget<P2_t>;
+		return join_p<P1_t, forget_t>(std::forward<P1_t>(p1),forget_t{std::forward<P2_t>(p2)});
 	} else if constexpr(!std::is_same_v<active_t,typename P1_t::active> && std::is_same_v<active_t,typename P2_t::active>){
-		return create_join_parser(
-				forget{std::forward<P1>(p1)},
-				p2,
-				TLIST<EOL>{},
-				typename P2_t::UNPARSED_LIST{});
+		using forget_t = forget<P1_t>;
+		return join_p<forget_t, P2_t>(forget_t{std::forward<P1_t>(p1)},std::forward<P2_t>(p2));
 	} else {
 		return f_parser([first = std::forward<P1>(p1),second=std::forward<P2>(p2)] 
 		(auto& ctx) mutable {
@@ -362,7 +331,7 @@ struct fr_parser_t : public parse_object {
 	using UNPARSED_LIST = TLIST<ARGS...>;
 	F_TYPE fds;
 	fr_parser_t(F_TYPE&& fds) : fds(std::forward<F_TYPE>(fds)) {};
-	bool _parse(context& ctx, ARGS&...args){
+	bool _parse(auto& ctx, ARGS&...args){
 		return fds(ctx,args...);
 	}
 };
@@ -373,9 +342,9 @@ auto fr_parser(auto&& f){
 	using parser = fr_parser_t<F_TYPE,ARGS...>;
 	return nr_parser<VOID,parser,ARGS...>({},parser{std::forward<F_TYPE>(f)});
 }
-template<typename...UNPARSED>
+template<context_c context_t, typename...UNPARSED>
 struct rpo : public parse_object{
-	using f_type = std::function<bool(context&,UNPARSED&...)>;
+	using f_type = std::function<bool(context_t&,UNPARSED&...)>;
 	using UNPARSED_LIST = TLIST<UNPARSED...>;
 
 	f_type f;
@@ -384,14 +353,14 @@ struct rpo : public parse_object{
 	rpo(const rpo&) = delete;
 	rpo(rpo&&) = delete;
 
-	template<typename F> requires std::invocable<F,context&,UNPARSED&...>
+	template<typename F> requires std::invocable<F,context_t&,UNPARSED&...>
 	rpo(F&& f) {
 		this->f = std::forward<F>(f);
 	}
 
 	template<parser T>
 	void operator=(T&& p){
-		f = [p = std::forward<T>(p)](context& ctx, auto&...up_args) mutable -> bool {
+		f = [p = std::forward<T>(p)](context_t& ctx, auto&...up_args) mutable -> bool {
 			if constexpr (rparser<T>){
 				return parse(ctx,p,up_args...);
 			}else{
@@ -400,10 +369,10 @@ struct rpo : public parse_object{
 		};
 	}
 
-	bool _parse(context& ctx, UNPARSED&...up_args){
+	bool _parse(context_t& ctx, UNPARSED&...up_args){
 		return f(ctx,up_args...);
 	}
-	bool _match(context& ctx) {
+	bool _match(context_t& ctx) {
 		hold_normal<UNPARSED...> h;
 		return h.apply(f,ctx);
 	}
@@ -411,6 +380,8 @@ struct rpo : public parse_object{
 		return true;
 	}
 };
+template<typename...ARGS>
+using basic_rpo = rpo<basic_context, ARGS...>;
 auto erase(parser auto&& parser){
 	using prev_type = std::decay_t<decltype(parser)>;
 	using ret_type = 
