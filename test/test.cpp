@@ -3,22 +3,22 @@
 #include <gtest/gtest.h>
 #include <rapidcheck/gtest.h>
 
-TEST(ezpz,done){
+TEST(context,done){
 	basic_context ctx;
 	EXPECT_TRUE(ctx.done());
 }
-TEST(ezpz,ws){
+TEST(matcher,ws){
 	basic_context ctx;
 	ctx.input = "   \t \t \n\t\n  ";
 	EXPECT_TRUE(match(ctx,ws));
 	EXPECT_TRUE(ctx.done());
 }
-TEST(ezpz,assign){
+TEST(consumer,assign){
 	int res;
 	ASSERT_TRUE(match("123",decimal<int> * assign(res)));
 	EXPECT_EQ(res,123);
 }
-TEST(ezpz,insert){
+TEST(consumer,insert){
 	std::vector<int> vec;
 	ASSERT_TRUE(match("123",decimal<int> * insert(vec)));
 
@@ -39,7 +39,7 @@ TEST(ezpz,insert){
 
 }
 
-TEST(ezpz,ret){
+TEST(consumer,ret){
 	int val = 0;
 	match("   ",ws*ret(2)*assign(val));
 	EXPECT_EQ(val,2);
@@ -120,6 +120,26 @@ TEST(core,match_or_undo){
 	EXPECT_FALSE(match_or_undo(ctx,decimal<int>+" was"+eoi));
 	EXPECT_EQ(ctx.pos,0);
 }
+TEST(matcher,token){
+	EXPECT_TRUE(match("aaa",token('a')));
+	EXPECT_FALSE(match("bbb",token('a')));
+	EXPECT_TRUE(match("aaa",token('a')+token('a')+token('a')+eoi));
+}
+TEST(quantifiers,times){
+	EXPECT_TRUE(match("aaa",times(3,"a"_p)+eoi));
+	EXPECT_FALSE(match("aaaa",times(3,"a"_p)+eoi));
+	EXPECT_FALSE(match("aa",times(3,"a"_p)+eoi));
+}
+TEST(quantifiers,max){
+	EXPECT_FALSE(match("aaa",max(2,"a"_p)+eoi));
+	EXPECT_TRUE(match("aaa",max(3,"a"_p)+eoi));
+	EXPECT_TRUE(match("aa",max(3,"a"_p)+eoi));
+}
+TEST(quantifiers,min){
+	EXPECT_FALSE(match("aa",min(3,"a"_p)+eoi));
+	EXPECT_TRUE(match("aaa",min(3,"a"_p)+eoi));
+	EXPECT_FALSE(match("aaa",min(4,"a"_p)+eoi));
+}
 TEST(helper,fail){
 	EXPECT_FALSE(match("abdsd",fail));
 	EXPECT_FALSE(match("8392842",fail));
@@ -149,7 +169,7 @@ TEST(helper,ref){
 	ctx.pos = 0;
 	EXPECT_TRUE(match(ctx,rrr_p));
 }
-TEST(ezpz,text_parser){
+TEST(matcher,text_parser){
 	bool success;
 	auto parser = "hello" + f_parser([&](auto&){
 		success = true;
@@ -185,12 +205,27 @@ RC_GTEST_PROP(ezpz,simple_list_parser,(std::vector<int> vec)){
 	RC_ASSERT(vec == unparsed);
 	RC_ASSERT(ctx.done());
 }
-RC_GTEST_PROP(ezpz,decimal_parse_identity,(long long val)){
+RC_GTEST_PROP(ezpz,integer_decimal_parse_identity,(long long val)){
 	basic_context ctx;
 	ctx.input = std::to_string(val);
 	long long parsed = -1;
-	match(ctx,decimal<long long> * assign(parsed));
+	RC_ASSERT(match(ctx,decimal<long long> * assign(parsed)));
 	RC_ASSERT(val == parsed);
+	RC_ASSERT(ctx.done());
+}
+RC_GTEST_PROP(ezpz,floating_decimal_parse_identity,(double val)){
+	std::ostringstream out;
+	out.precision(32);
+    out << std::fixed << val;
+	basic_context ctx;
+    ctx.input = out.str();
+	double parsed = -1;
+	RC_ASSERT(match(ctx,decimal<double> * assign(parsed)));
+	if(val != 0){
+		RC_ASSERT(std::abs((val-parsed)/val) <= 0.000001);
+	}else{
+		RC_ASSERT(val == parsed);
+	}
 	RC_ASSERT(ctx.done());
 }
 RC_GTEST_PROP(ezpz,text_parse_identity,(std::string s)){

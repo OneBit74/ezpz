@@ -30,6 +30,46 @@ parser auto optional(T&& rhs) {
 	return ret;
 }
 
+auto times(int amount,auto&& parser){
+	return f_parser([=](auto& ctx) mutable {
+			for(int i = 0; i < amount; ++i){
+				if(!match(ctx,parser))return false;
+			}
+			return true;
+		}
+	);
+}
+auto max(int amount,auto&& parser){
+	return f_parser([=](auto& ctx) mutable {
+		int counter = 0;
+		while(true){
+			auto start = ctx.getPosition();
+			if(!match(ctx,parser)){
+				return true;
+			}else if (counter >= amount) {
+				ctx.setPosition(start);
+				return false;
+			}
+			counter++;
+		}
+	});
+}
+auto min(int amount,auto&& parser){
+	return f_parser([=](auto& ctx) mutable {
+		int counter = 0;
+		while(true){
+			auto start = ctx.getPosition();
+			if(!match(ctx,parser)){
+				if(counter < amount){
+					ctx.setPosition(start);
+				}
+				return counter >= amount;
+			}
+			counter++;
+		}
+	});
+}
+
 
 /* struct max_t { */
 /* 	int val; */

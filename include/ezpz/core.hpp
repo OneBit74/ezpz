@@ -44,6 +44,9 @@ struct nr_parser : public parse_object {
 			parent._undo(ctx);
 		}
 	}
+	bool dbg_inline() {
+		return true;
+	}
 	bool _parse(auto& ctx, UNPARSED&...up_args){
 		if constexpr(std::is_same_v<REM,VOID>){
 			return true;

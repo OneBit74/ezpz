@@ -3,45 +3,45 @@
 #include <iostream>
 #include <fstream>
 
-void m1(){
-	std::ifstream t("temp");
-	std::stringstream buffer;
-	buffer << t.rdbuf();
+/* void m1(){ */
+/* 	std::ifstream t("temp"); */
+/* 	std::stringstream buffer; */
+/* 	buffer << t.rdbuf(); */
 
-	/* context ctx("asd(asd<fd[asd,asd]>)"); */
-	basic_context ctx(buffer.str());
-	/* ctx.debug = true; */
+/* 	/1* context ctx("asd(asd<fd[asd,asd]>)"); *1/ */
+/* 	basic_context ctx(buffer.str()); */
+/* 	/1* ctx.debug = true; *1/ */
 
-	auto level = 0;
-	auto indent = [&](){
-		for(int i = 0; i < level; ++i){
-			std::cout << ' ';
-		}
-	};
-	auto dec_indent = [&](){
-		level--;
-		level = std::max(0,level);
-	};
-	auto inc_indent = [&](){
-		level++;
-	};
-	auto print_one = [](auto& x){
-		std::cout << x << std::flush;
-	};
-	auto nl = [](){
-		std::cout << '\n';
-	};
-	auto p = 
-		any
-			( (capture("operator>>"_p|regex("f_wrapper\\<[^\\>]*\\>"))*print_one*inc_indent)
-			| (capture("("_p|"<"|"[")*print_one*nl*inc_indent*indent)
-			| (capture(")"_p|">"|"]")*dec_indent*nl*indent*print_one)
-			| (capture(text_parser(", "))*print_one*nl*indent)
-			| capture(single)*print_one
-			);
-	std::cout << sizeof(p) << std::endl;
-	std::cout << match(ctx,p+eoi) << std::endl;
-}
+/* 	auto level = 0; */
+/* 	auto indent = [&](){ */
+/* 		for(int i = 0; i < level; ++i){ */
+/* 			std::cout << ' '; */
+/* 		} */
+/* 	}; */
+/* 	auto dec_indent = [&](){ */
+/* 		level--; */
+/* 		level = std::max(0,level); */
+/* 	}; */
+/* 	auto inc_indent = [&](){ */
+/* 		level++; */
+/* 	}; */
+/* 	auto print_one = [](auto& x){ */
+/* 		std::cout << x << std::flush; */
+/* 	}; */
+/* 	auto nl = [](){ */
+/* 		std::cout << '\n'; */
+/* 	}; */
+/* 	auto p = */ 
+/* 		any */
+/* 			( (capture("operator>>"_p|regex("f_wrapper\\<[^\\>]*\\>"))*print_one*inc_indent) */
+/* 			| (capture("("_p|"<"|"[")*print_one*nl*inc_indent*indent) */
+/* 			| (capture(")"_p|">"|"]")*dec_indent*nl*indent*print_one) */
+/* 			| (capture(text_parser(", "))*print_one*nl*indent) */
+/* 			| capture(single)*print_one */
+/* 			); */
+/* 	std::cout << sizeof(p) << std::endl; */
+/* 	std::cout << match(ctx,p+eoi) << std::endl; */
+/* } */
 int main(){
 
 	using num_t = float;

@@ -2,21 +2,21 @@
 #include <utility>
 
 template<typename T>
-concept std_map_c = requires(T t, T::key_type k, T::mapped_type m){
+concept std_map_c = requires(T t, typename T::key_type k, typename T::mapped_type m){
 	{
 		t.insert_or_assign(k,m)
 	};
 };
 template<typename T>
-concept std_seq_c = requires(T t, T::value_type val){
+concept std_seq_c = requires(T t, typename T::value_type val){
 	t.push_back(val);
 };
 template<typename T>
-concept std_adaptor_c = requires(T t, T::value_type val){
+concept std_adaptor_c = requires(T t, typename  T::value_type val){
 	t.push(val);
 };
 template<typename T>
-concept std_set_c = !std_map_c<T> && requires(T t, T::value_type val){
+concept std_set_c = !std_map_c<T> && requires(T t, typename T::value_type val){
 	t.insert(val);
 };
 

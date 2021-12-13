@@ -3,7 +3,24 @@
 #include <unordered_map>
 #include <regex>
 #include <iostream>
-
+#include <cxxabi.h>
+ 
+template<typename T>
+std::string type_name()
+{
+	std::string tname = typeid(T).name();
+	#if defined(__clang__) || defined(__GNUG__)
+	int status;
+	char *demangled_name = abi::__cxa_demangle(tname.c_str(), NULL, NULL, &status);
+	if(status == 0)
+	{
+		tname = demangled_name;
+		std::free(demangled_name);
+	}
+	#endif
+	return tname;
+}
+ 
 template<typename T>
 concept context_c = requires(T t){
 	{
@@ -39,9 +56,10 @@ public:
 	inline int getPosition() const {
 		return pos;
 	}
-	inline void notify_enter(auto& parser) {}
-	inline void notify_leave(auto& parser, bool success) {}
+	inline void notify_enter(auto&) {}
+	inline void notify_leave(auto&, bool) {}
 };
+
 class basic_context : public min_context {
 public:
 	using min_context::min_context;
@@ -82,7 +100,7 @@ public:
 		std::cout << '\"';
 		std::cout << std::string_view{input.begin()+start_pos, input.begin()+end_pos};
 		std::cout << '\"';
-		std::cout << " " << typeid(decltype(parser)).name();
+		std::cout << " " << type_name<decltype(parser)>();
 		std::cout << std::endl;
 		indent();
 		std::cout << "          ";

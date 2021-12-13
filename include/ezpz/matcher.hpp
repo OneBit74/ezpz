@@ -6,19 +6,20 @@
 #include <regex>
 
 
-inline parser auto text_parser(std::string_view sv) {
-	return f_parser([=]
-		(auto& ctx){
-			for(char c : sv){
-				if(ctx.done())return false;
-				char i = ctx.token();
-				if(i != c)return false;
-				ctx.advance();
-			}
-			return true;
+struct text_parser : public parse_object {
+	std::string_view sv;
+	inline text_parser(std::string_view sv) : sv(sv) {}
+	
+	inline bool _match(basic_context_c auto& ctx) {
+		for(char c : sv){
+			if(ctx.done())return false;
+			char i = ctx.token();
+			if(i != c)return false;
+			ctx.advance();
 		}
-	);
-}
+		return true;
+	}
+};
 inline parser auto text(const std::string_view& sv) {
 	return f_parser([&](auto& ctx){
 		for(size_t i = 0; i < sv.size(); ++i){
@@ -55,20 +56,22 @@ inline auto operator "" _p(const char* s, size_t len){
 	return text_parser(std::string_view{s,len});
 }
 
-inline auto ws = f_parser([](basic_context_c auto& ctx){
-	while(!ctx.done()){
-		switch(ctx.token()){
-		case ' ':
-		case '\t':
-		case '\n':
-			++ctx.pos;
-			break;
-		default:
-			return true;
+inline struct ws_t : public parse_object {
+	inline bool _match(basic_context_c auto& ctx){
+		while(!ctx.done()){
+			switch(ctx.token()){
+			case ' ':
+			case '\t':
+			case '\n':
+				++ctx.pos;
+				break;
+			default:
+				return true;
+			}
 		}
+		return true;
 	}
-	return true;
-});
+} ws;
 inline parser auto digit = f_parser([](basic_context_c auto& ctx){
 	if(ctx.done())return false;
 	if(std::isdigit(ctx.token())){
@@ -87,45 +90,51 @@ inline parser auto graph_letter = f_parser([](auto& ctx){
 });
 inline parser auto string = "\"" + any(notf("\"")) + "\"";
 
-template<typename integer, int base>
-auto number = fr_parser<integer>([](basic_context_c auto& ctx, integer& ret){
+template<typename num_t, int base> 
+struct number_parser : public parse_object {
+	using UNPARSED_LIST = TLIST<num_t>;
 	static_assert(base <= 10);
 	static_assert(base >= 2);
-	if(ctx.done())return false;
-	bool negative = false;
-	if(ctx.token() == '-'){
-		negative = true;
-		++ctx.pos;
-	}else if(ctx.token() == '+'){
-		++ctx.pos;
-	}
-	if(ctx.done())return false;
-	ret = 0;
-	bool invalid = true;
-	while(!ctx.done() && std::isdigit(ctx.token())){
-		invalid = false;
-		ret *= base;
-		ret += ctx.token()-'0';
-		++ctx.pos;
-	}
-	if(invalid)return false;
-	if constexpr(std::floating_point<integer>){
-		if(ctx.token() == '.'){
-			++ctx.pos;
-			invalid = true;
-			integer alpha = 1;
-			while(!ctx.done() && std::isdigit(ctx.token())){
-				invalid = false;
-				alpha /= base;
-				ret += (ctx.token()-'0')*alpha;
-				++ctx.pos;
-			}
-			if(invalid)return false;
+	
+	bool _parse(basic_context_c auto& ctx, num_t& ret) {
+		if(ctx.done())return false;
+		bool negative = false;
+		if(ctx.token() == '-'){
+			negative = true;
+			ctx.advance();
+		}else if(ctx.token() == '+'){
+			ctx.advance();
 		}
+		if(ctx.done())return false;
+		ret = 0;
+		bool invalid = true;
+		while(!ctx.done() && std::isdigit(ctx.token())){
+			invalid = false;
+			ret *= base;
+			ret += ctx.token()-'0';
+			ctx.advance();
+		}
+		if(invalid)return false;
+		if constexpr(std::floating_point<num_t>){
+			if(!ctx.done() && ctx.token() == '.'){
+				++ctx.pos;
+				invalid = true;
+				num_t alpha = 1;
+				while(!ctx.done() && std::isdigit(ctx.token())){
+					invalid = false;
+					alpha /= base;
+					ret += (ctx.token()-'0')*alpha;
+					++ctx.pos;
+				}
+				if(invalid)return false;
+			}
+		}
+		if(negative)ret = -ret;
+		return true;
 	}
-	if(negative)ret = -ret;
-	return true;
-});
+};
+template<typename num_t, int base>
+auto number = number_parser<num_t,base>{};
 
 template<typename integer>
 auto& decimal = number<integer,10>;
@@ -146,6 +155,14 @@ inline struct single_p : public parse_object {
 	}
 } single;
 
+auto token(auto&& val){
+	return f_parser([=](auto& ctx){
+		auto ret = ctx.token() == val;
+		ctx.advance();
+		return ret;
+	});
+}
+
 inline auto regex(std::string_view pattern){
 	return fr_parser<std::string_view>([=](basic_context& ctx, std::string_view& output){
 		const std::string str{pattern};
@@ -163,6 +180,7 @@ inline auto regex(std::string_view pattern){
 		return true;
 	});
 }
+
 
 /* auto operator|(std::string_view sv1, std::string_view sv2){ */
 /* 	return text_parser(sv1) | text_parser(sv2); */

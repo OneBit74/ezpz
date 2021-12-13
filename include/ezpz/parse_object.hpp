@@ -145,7 +145,7 @@ public:
 		return f(ctx);
 	}
 	bool dbg_inline() const {
-		return true;
+		return false;
 	}
 };
 template<typename F_TYPE>
