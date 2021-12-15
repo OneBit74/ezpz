@@ -1,11 +1,7 @@
 #pragma once
 #include "ezpz/meta.hpp"
 #include "ezpz/context.hpp"
-#include <concepts>
 #include <string>
-#include <string_view>
-#include <memory>
-#include <iostream>
 
 template<typename T>
 concept tlist_c = requires(){
@@ -17,22 +13,9 @@ concept parser_d =
 	requires(T t){
 		typename T::UNPARSED_LIST;
 		typename T::active;
-		{ 
-			t.dbg_inline()
-		} -> std::same_as<bool>;
-		{ 
-			t.name()
-		} -> std::same_as<std::string>;
 	};
 template<typename T>
 concept parser = parser_d<std::decay_t<T>>;
-template<typename T, typename context_t>
-concept parser_for_context = context_c<context_t> && parser<T> &&
-	requires(context_t ctx, T t){
-		{ 
-			t._undo(ctx)
-		} -> std::same_as<void>;
-	};
 template<typename context_t, typename P, typename...ARGS>
 concept rparser_invocability = context_c<context_t> &&
 	requires(P p,context_t& ctx, ARGS...args){
@@ -50,13 +33,18 @@ concept rparser = parser<P> && requires(){
 	/* typename std::enable_if_t<!std::same_as<typename std::decay_t<P>::UNPARSED_LIST, TLIST<EOL>>>; */
 };
 
+void undo(context_c auto& ctx, parser auto& p){
+	if constexpr( requires(decltype(p) p, decltype(ctx) ctx){p._undo(ctx);} ) {
+		p._undo(ctx);
+	}
+}
 
-bool parse(std::string s, parser_for_context<basic_context> auto&& p){
+bool parse(std::string s, parser auto&& p){
 	basic_context ctx(std::move(s));
 	return parse(ctx,std::forward<std::decay_t<decltype(p)>>(p));
 }
 template<context_c context_t, typename P, typename...ARGS> 
-requires parser_for_context<std::decay_t<P>, context_t> 
+requires parser<std::decay_t<P>> 
 bool parse_or_undo(context_t& ctx, P&& p, ARGS&...args) {
 	using P_t = std::decay_t<P>;
 	auto start_pos = ctx.getPosition();
@@ -64,15 +52,18 @@ bool parse_or_undo(context_t& ctx, P&& p, ARGS&...args) {
 		return true;
 	}else{
 		ctx.setPosition(start_pos);
-		p._undo(ctx);
+		undo(ctx,p);
 		return false;
 	}
 }
 template<context_c context_t, typename P, typename...ARGS> 
-requires parser_for_context<std::decay_t<P>, context_t> 
+requires parser<std::decay_t<P>>
 bool parse(context_t& ctx, P&& p, ARGS&...args) {
 	using P_t = std::decay_t<P>;
-	static_assert(sizeof...(ARGS) == 0 || sizeof...(ARGS) == list_size<typename P_t::UNPARSED_LIST>::value,"invalid amount of arguments to ezpz::parse");
+	static_assert(sizeof...(ARGS) == 0 || sizeof...(ARGS) == list_size<typename P_t::UNPARSED_LIST>::value,
+			"invalid amount of arguments to ezpz::parse");
+	static_assert(sizeof...(ARGS) == 0 || std::same_as<typename get_decay_list<TLIST<ARGS...>>::type,typename P_t::UNPARSED_LIST>,
+			"wrong argument types to ezpz::parse");
 	if constexpr(sizeof...(ARGS) == 0 && list_size<typename P_t::UNPARSED_LIST>::value != 0){
 		using hold_t = typename instantiate_list<hold_normal, typename P_t::UNPARSED_LIST>::type;
 		hold_t hold;
@@ -93,20 +84,12 @@ bool parse(context_t& ctx, P&& p, ARGS&...args) {
 		}
 	}
 }
-class parse_object {
-public:
+
+template<typename F_TYPE> 
+struct f_parser_t {
 	using active = active_f;
 	using UNPARSED_LIST = TLIST<EOL>;
 
-	constexpr bool _parse(auto&){return true;};
-	constexpr void _undo(auto&) {};
-	inline std::string name() const {return "";}
-	constexpr bool dbg_inline() const {return false;}
-};
-
-template<typename F_TYPE> 
-class f_parser_t : public parse_object {
-public:
 	F_TYPE f;
 
 	f_parser_t(F_TYPE& of) : f(of) {}
@@ -142,13 +125,17 @@ struct dont_store_empty<T>{
 };
 
 template<parser T1, parser T2>
-struct bi_comb : public parse_object {
+struct bi_comb {
+	using active = active_f;
+	using UNPARSED_LIST = TLIST<EOL>;
 	[[no_unique_address]] dont_store_empty<T1> t1;
 	[[no_unique_address]] dont_store_empty<T2> t2;
 	bi_comb(auto&& p1, auto&& p2) : t1(std::forward<T1>(p1)), t2(std::forward<T2>(p2)) {}
 };
 template<parser T1, parser T2>
 struct simple_or_parser : public bi_comb<T1,T2> {
+	using active = active_f;
+	using UNPARSED_LIST = TLIST<EOL>;
 	using parent_t = bi_comb<T1,T2>;
 	bool _parse(auto& ctx) {
 		return parse_or_undo(ctx,parent_t::t1.get()) || parse(ctx,parent_t::t2.get());
@@ -159,6 +146,8 @@ struct simple_or_parser : public bi_comb<T1,T2> {
 };
 template<parser T1, parser T2>
 struct simple_and_parser : public bi_comb<T1,T2> {
+	using active = active_f;
+	using UNPARSED_LIST = TLIST<EOL>;
 	using parent_t = bi_comb<T1,T2>;
 	bool _parse(auto& ctx) {
 		return parse(ctx,parent_t::t1.get()) && parse(ctx,parent_t::t2.get());

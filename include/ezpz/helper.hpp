@@ -13,7 +13,10 @@ inline struct print_t {
 	};
 } print;
 inline parser auto fail = f_parser([](auto&){return false;});
-inline struct eoi_t : public parse_object {
+inline struct eoi_t {
+	using active = active_f;
+	using UNPARSED_LIST = TLIST<EOL>;
+
 	bool _parse(auto& ctx){
 		return ctx.done();
 	}
@@ -25,7 +28,7 @@ auto copy(auto&& val){
 }
 
 template<parser parser>
-class parse_object_ref : public parse_object {
+class parse_object_ref {
 public:
 	using active = typename parser::active;
 	using UNPARSED_LIST = typename parser::UNPARSED_LIST;
@@ -37,7 +40,7 @@ public:
 		return p._parse(ctx);
 	}
 	void _undo(auto& ctx) {
-		p._undo(ctx);
+		undo(ctx,p);
 	}
 	bool _parse(auto& ctx, auto&...args) requires rparser<parser>{
 		return parse(ctx,p,args...);
@@ -53,9 +56,9 @@ parser auto ref(auto& p){
 }
 
 template<parser P>
-struct capture_t : public parse_object {
+struct capture_t {
+	using active = active_f;
 	using UNPARSED_LIST = TLIST<std::string_view>;
-	using active_t = active_f;
 
 	P parent;
 	capture_t(P&& op) : parent(std::move(op)) {}

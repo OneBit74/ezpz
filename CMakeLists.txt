@@ -1,4 +1,4 @@
-project(ezp)
+project(ezpz)
 cmake_minimum_required(VERSION 3.21)
 
 include(FetchContent)
@@ -13,6 +13,11 @@ include_directories(${rapidcheck_SOURCE_DIR}/include)
 include_directories(${rapidcheck_SOURCE_DIR}/extras/gtest/include)
 
 
+# set(CMAKE_CXX_CLANG_TIDY
+#   clang-tidy;
+#   -header-filter=.;
+#   -checks=clang-analyzer-core.*;)
+
 #"-fconcepts-diagnostics-depth=20" "-fopenmp"
 add_compile_options(
 	"-Wall" "-Wpedantic" "-Wno-unused-local-typedefs" "-Wextra" "-fexceptions"
@@ -23,9 +28,6 @@ set(CMAKE_CXX_STANDARD 20)
 
 link_libraries(ubsan)
 
-
-find_package(fmt REQUIRED)
-include_directories(fmt)
 
 include_directories(include)
 
@@ -38,6 +40,6 @@ add_executable(xml examples/xml.cpp)
 find_package(GTest REQUIRED)
 add_executable(stest
 	test/test.cpp)
-target_link_libraries(stest fmt ${GTEST_BOTH_LIBRARIES})
+target_link_libraries(stest ${GTEST_BOTH_LIBRARIES})
 add_dependencies(stest rapidcheck)
 target_link_libraries(stest ${rapidcheck_BINARY_DIR}/librapidcheck.a)

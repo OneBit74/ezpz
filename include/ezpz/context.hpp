@@ -69,8 +69,14 @@ public:
 	std::unordered_map<std::string,std::regex> regex_cache;
 
 
+	bool is_dbg_inline(auto&p){
+		if constexpr( requires(decltype(p) p){p.dbg_inline();} ){
+			return p.dbg_inline();
+		}
+		return false;
+	}
 	inline void notify_leave(auto& parser, bool success, int prev_pos) {
-		if(!debug || parser.dbg_inline()){
+		if(!debug || is_dbg_inline(parser)){
 			return;
 		}
 
@@ -88,7 +94,7 @@ public:
 			<< std::endl;
 	}
 	int notify_enter(auto& parser) {
-		if(!debug || parser.dbg_inline()){
+		if(!debug || is_dbg_inline(parser)){
 			return 0;
 		}
 

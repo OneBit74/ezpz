@@ -2,11 +2,13 @@
 #include "parse_object.hpp"
 #include "context.hpp"
 #include "quantifiers.hpp"
-#include <fmt/core.h>
 #include <regex>
 
 
-struct text_parser : public parse_object {
+struct text_parser {
+	using active = active_f;
+	using UNPARSED_LIST = TLIST<EOL>;
+
 	std::string_view sv;
 	inline text_parser(std::string_view sv) : sv(sv) {}
 	
@@ -56,7 +58,10 @@ inline auto operator "" _p(const char* s, size_t len){
 	return text_parser(std::string_view{s,len});
 }
 
-inline struct ws_t : public parse_object {
+inline struct ws_t {
+	using active = active_f;
+	using UNPARSED_LIST = TLIST<EOL>;
+
 	inline bool _parse(basic_context_c auto& ctx){
 		while(!ctx.done()){
 			switch(ctx.token()){
@@ -91,8 +96,10 @@ inline parser auto graph_letter = f_parser([](auto& ctx){
 inline parser auto string = "\"" + any(notf("\"")) + "\"";
 
 template<typename num_t, int base> 
-struct number_parser : public parse_object {
+struct number_parser {
+	using active = active_f;
 	using UNPARSED_LIST = TLIST<num_t>;
+
 	static_assert(base <= 10);
 	static_assert(base >= 2);
 	
@@ -143,17 +150,25 @@ auto number = number_parser<num_t,base>{};
 template<typename integer>
 auto& decimal = number<integer,10>;
 
-inline struct alpha_p : public parse_object {
-	bool _parse(basic_context_c auto& ctx){
+inline struct alpha_p {
+	using active = active_f;
+	using UNPARSED_LIST = TLIST<char>;
+
+	bool _parse(basic_context_c auto& ctx, char& c){
 		if(ctx.done())return false;
+		c = ctx.token();
 		auto ret = isalpha(ctx.token());
 		ctx.advance();
 		return ret;
 	}
 } alpha;
-inline struct single_p : public parse_object {
-	bool _parse(auto& ctx){
+inline struct single_p {
+	using active = active_f;
+	using UNPARSED_LIST = TLIST<char>;
+
+	bool _parse(auto& ctx, char& c){
 		if(ctx.done())return false;
+		c = ctx.token();
 		ctx.advance();
 		return true;
 	}

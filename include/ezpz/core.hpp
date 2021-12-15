@@ -25,7 +25,7 @@ auto assign_last(T1&& src, REST&&..., T1& dst){
 }
 
 template<typename unp = VOID, typename REM = VOID, typename ... UNPARSED>
-struct nr_parser : public parse_object {
+struct nr_parser {
 	using UNPARSED_LIST = TLIST<UNPARSED...>;
 	using active = active_f;
 
@@ -38,7 +38,7 @@ struct nr_parser : public parse_object {
 	{};
 	void _undo(auto& ctx){
 		if constexpr ( !std::is_same_v<REM,VOID> ) {
-			parent._undo(ctx);
+			undo(ctx,parent);
 		}
 	}
 	bool dbg_inline() {
@@ -111,7 +111,7 @@ auto takeback_and_call_hlp(auto&& target, auto&& first, auto&&...args){
 }
 
 template<parser LHS, parser RHS>
-struct join_p : public parse_object {
+struct join_p {
 	using UNPARSED_LIST = typename append_list<typename LHS::UNPARSED_LIST, typename RHS::UNPARSED_LIST>::type;
 	using active = active_t;
 	[[no_unique_address]] dont_store_empty<LHS> lhs;
@@ -138,8 +138,8 @@ struct join_p : public parse_object {
 		return ret;
 	}
 	void _undo(auto& ctx){
-		rhs.get()._undo(ctx);
-		lhs.get()._undo(ctx);
+		undo(ctx,rhs.get());
+		undo(ctx,lhs.get());
 	}
 
 	bool dbg_inline() const {
@@ -161,7 +161,7 @@ auto operator!(T&& nr) {
 	return activated<P>(std::forward<P>(nr));
 }
 template<typename parser>
-struct forget : public parse_object {
+struct forget {
 	using UNPARSED_LIST = TLIST<EOL>;
 	using active = active_f;
 
@@ -215,7 +215,7 @@ struct or_helper {
 
 
 template<parser P1, parser P2>
-struct or_parser : public parse_object {
+struct or_parser {
 	using ret_type = typename or_helper<
 		typename P1::UNPARSED_LIST,
 		typename P2::UNPARSED_LIST>::type;
@@ -309,8 +309,10 @@ static_assert(std::is_same_v<invoke_list<std::function<void(int&,int&)>,TLIST<in
 /* static_assert(std::is_same_v<invoke_list<std::function<void(int&&)>,TLIST<int>>::args,TLIST<int>>); */
 
 template<typename F_TYPE, typename ... ARGS>
-struct fr_parser_t : public parse_object {
+struct fr_parser_t {
+	using active = active_f;
 	using UNPARSED_LIST = TLIST<ARGS...>;
+
 	F_TYPE fds;
 	fr_parser_t(F_TYPE&& fds) : fds(std::forward<F_TYPE>(fds)) {};
 	bool _parse(auto& ctx, ARGS&...args){
@@ -325,9 +327,10 @@ auto fr_parser(auto&& f){
 	return nr_parser<VOID,parser,ARGS...>(VOID{},parser{std::forward<F_TYPE>(f)});
 }
 template<context_c context_t, typename...UNPARSED>
-struct rpo : public parse_object{
+struct rpo {
 	using f_type = std::function<bool(context_t&,UNPARSED&...)>;
 	using UNPARSED_LIST = TLIST<UNPARSED...>;
+	using active = active_f;
 
 	f_type f;
 
