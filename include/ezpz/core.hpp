@@ -254,14 +254,14 @@ struct or_parser {
 	}
 };
 
-template<parser P1, parser P2> requires rparser<P1> || rparser<P2>
+template<parser P1, parser P2> 
 parser auto operator|(P1&& p1, P2&& p2){
 	using P1_t = std::decay_t<P1>;
 	using P2_t = std::decay_t<P2>;
 
 	return or_parser<P1_t,P2_t>{std::forward<P1_t>(p1), std::forward<P2_t>(p2)};
 }
-template<parser P1, parser P2> requires rparser<P1> || rparser<P2>
+template<parser P1, parser P2> 
 parser auto operator+(P1&& p1, P2&& p2){
 	using P1_t = std::decay_t<P1>;
 	using P2_t = std::decay_t<P2>;
