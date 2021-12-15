@@ -14,7 +14,7 @@ inline struct print_t {
 } print;
 inline parser auto fail = f_parser([](auto&){return false;});
 inline struct eoi_t : public parse_object {
-	bool _match(auto& ctx){
+	bool _parse(auto& ctx){
 		return ctx.done();
 	}
 } eoi;
@@ -33,8 +33,8 @@ public:
 	parser& p;
 	parse_object_ref(parser& op) : p(op) {}
 
-	bool _match(auto& ctx) {
-		return p._match(ctx);
+	bool _parse(auto& ctx) {
+		return p._parse(ctx);
 	}
 	void _undo(auto& ctx) {
 		p._undo(ctx);
@@ -62,12 +62,9 @@ struct capture_t : public parse_object {
 	capture_t(const P& op) : parent(op) {}
 	bool _parse(auto& ctx, std::string_view& sv){
 		auto start = ctx.pos;
-		auto ret = match(ctx,parent);
+		auto ret = parse(ctx,parent);
 		sv = std::string_view{ctx.input.c_str()+start,ctx.pos-start};
 		return ret;
-	}
-	bool _match(auto& ctx){
-		return match(ctx,parent);
 	}
 	bool dbg_inline(){
 		return true;

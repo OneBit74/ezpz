@@ -12,7 +12,7 @@ int main(){
 	};
 	basic_rpo<node> xml_node;
 	xml_node = fr_parser<node>([&](auto& ctx, node& ret){
-		return match(ctx,
+		return parse(ctx,
 			"<"+ws+(capture(regex("\\w+")) * assign(ret.name)) + ws +">"+ws+
 			(
 				plus(ref(xml_node) * insert(ret.children)) |
@@ -26,7 +26,7 @@ int main(){
 	node root;
 	basic_context ctx("<hey><p>This is</p><b>xml</b></hey>");
 	ctx.debug = true;
-	match(ctx,ref(xml_node) * assign(root)+eoi | print("error"));
+	parse(ctx,ref(xml_node) * assign(root)+eoi | print("error"));
 	std::cout << root.name << std::endl;
 	std::cout << root.children.size() << std::endl;
 	for(auto& child : root.children)std::cout << "child: " <<  child.name << std::endl;

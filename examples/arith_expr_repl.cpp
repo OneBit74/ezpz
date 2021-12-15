@@ -40,7 +40,7 @@
 /* 			| capture(single)*print_one */
 /* 			); */
 /* 	std::cout << sizeof(p) << std::endl; */
-/* 	std::cout << match(ctx,p+eoi) << std::endl; */
+/* 	std::cout << parse(ctx,p+eoi) << std::endl; */
 /* } */
 int main(){
 
@@ -48,7 +48,7 @@ int main(){
 
 	auto op_maker_la = [](std::string_view op, auto upper, auto&& operation){
 		return fr_parser<num_t>([op,operation,upper](basic_context& ctx, num_t& num) mutable {
-			return match(ctx,upper*assign(num)+ws+(any(op+ws+ref(upper)*
+			return parse(ctx,upper*assign(num)+ws+(any(op+ws+ref(upper)*
 					[&](num_t val){
 						std::cout << num << " " << op << " " << val << " = " << operation(num,val) << std::endl;
 						num = operation(num,val);
@@ -97,7 +97,7 @@ int main(){
 		std::getline(std::cin,line);
 		if(std::cin.eof())break;
 		basic_context ctx(line);
-		match(ctx,(assignment | (expr*[&](auto val){store["%"] = val; std::cout << val << std::endl;}) | print("error")));
+		parse(ctx,(assignment | (expr*[&](auto val){store["%"] = val; std::cout << val << std::endl;}) | print("error")));
 	}
 
 }

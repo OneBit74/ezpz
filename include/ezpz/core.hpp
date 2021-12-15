@@ -83,12 +83,6 @@ struct nr_parser : public parse_object {
 			}
 		}
 	}
-	bool _match(auto& ctx) {
-		using hold_args = typename reverse_list<TLIST<UNPARSED...>>::type;
-		using hold_type = typename instantiate_list<hold,hold_args>::type;
-		hold_type h;
-		return h.apply([&](UNPARSED&...u_args){return this->_parse(ctx,u_args...);});
-	}
 };
 
 template<typename...ARGS>
@@ -143,13 +137,6 @@ struct join_p : public parse_object {
 		ret = takeback_and_call<list_size<typename RHS::UNPARSED_LIST>::value>(cb_rhs,args...);
 		return ret;
 	}
-	bool _match(auto& ctx){
-		using hold_t = typename instantiate_list<hold_normal, UNPARSED_LIST>::type;
-		hold_t h;
-		return h.apply([self=this](auto& ctx,auto&...a1) mutable {
-				return self->_parse(ctx,a1...);
-		},ctx);
-	}
 	void _undo(auto& ctx){
 		rhs.get()._undo(ctx);
 		lhs.get()._undo(ctx);
@@ -183,8 +170,8 @@ struct forget : public parse_object {
 	forget(parser& op) : p(op) {};
 	forget(parser&& op) : p(std::move(op)) {};
 	
-	bool _match(auto& ctx){
-		return match(ctx,p);
+	bool _parse(auto& ctx){
+		return parse(ctx,p);
 	}
 	bool dbg_inline(){
 		return true;
@@ -257,15 +244,10 @@ struct or_parser : public parse_object {
 				}
 				return success;
 			}else{
-				return match_or_undo(ctx,t);
+				return parse_or_undo(ctx,t);
 			}
 		};
 		return attempt(p1.get()) || attempt(p2.get());
-	}
-	bool _match(auto& ctx){
-		using hold_type = typename instantiate_list<hold,UNPARSED_LIST>::type;
-		hold_type h;
-		return h.apply([&](auto&...u_args){return this->_parse(ctx,u_args...);});
 	}
 	bool dbg_inline() const{
 		return true;
@@ -296,7 +278,7 @@ parser auto operator+(P1&& p1, P2&& p2){
 	} else {
 		return f_parser([first = std::forward<P1>(p1),second=std::forward<P2>(p2)] 
 		(auto& ctx) mutable {
-			return match(ctx,first) && match(ctx,second);
+			return parse(ctx,first) && parse(ctx,second);
 		});
 	}
 }
@@ -364,17 +346,13 @@ struct rpo : public parse_object{
 			if constexpr (rparser<T>){
 				return parse(ctx,p,up_args...);
 			}else{
-				return match(ctx,p);
+				return parse(ctx,p);
 			}
 		};
 	}
 
 	bool _parse(context_t& ctx, UNPARSED&...up_args){
 		return f(ctx,up_args...);
-	}
-	bool _match(context_t& ctx) {
-		hold_normal<UNPARSED...> h;
-		return h.apply(f,ctx);
 	}
 	bool dbg_inline() const {
 		return true;

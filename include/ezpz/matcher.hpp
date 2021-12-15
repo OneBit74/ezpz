@@ -10,7 +10,7 @@ struct text_parser : public parse_object {
 	std::string_view sv;
 	inline text_parser(std::string_view sv) : sv(sv) {}
 	
-	inline bool _match(basic_context_c auto& ctx) {
+	inline bool _parse(basic_context_c auto& ctx) {
 		for(char c : sv){
 			if(ctx.done())return false;
 			char i = ctx.token();
@@ -57,7 +57,7 @@ inline auto operator "" _p(const char* s, size_t len){
 }
 
 inline struct ws_t : public parse_object {
-	inline bool _match(basic_context_c auto& ctx){
+	inline bool _parse(basic_context_c auto& ctx){
 		while(!ctx.done()){
 			switch(ctx.token()){
 			case ' ':
@@ -132,7 +132,7 @@ struct number_parser : public parse_object {
 		if(negative)ret = -ret;
 		return true;
 	}
-	bool _match(auto& ctx){
+	bool _parse(auto& ctx){
 		num_t ret;
 		return _parse(ctx,ret);
 	}
@@ -144,7 +144,7 @@ template<typename integer>
 auto& decimal = number<integer,10>;
 
 inline struct alpha_p : public parse_object {
-	bool _match(basic_context_c auto& ctx){
+	bool _parse(basic_context_c auto& ctx){
 		if(ctx.done())return false;
 		auto ret = isalpha(ctx.token());
 		ctx.advance();
@@ -152,7 +152,7 @@ inline struct alpha_p : public parse_object {
 	}
 } alpha;
 inline struct single_p : public parse_object {
-	bool _match(auto& ctx){
+	bool _parse(auto& ctx){
 		if(ctx.done())return false;
 		ctx.advance();
 		return true;

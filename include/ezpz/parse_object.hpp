@@ -32,9 +32,6 @@ concept parser_for_context = context_c<context_t> && parser<T> &&
 		{ 
 			t._undo(ctx)
 		} -> std::same_as<void>;
-		{ 
-			t._match(ctx)
-		} -> std::same_as<bool>;
 	};
 template<typename context_t, typename P, typename...ARGS>
 concept rparser_invocability = context_c<context_t> &&
@@ -54,43 +51,12 @@ concept rparser = parser<P> && requires(){
 };
 
 
-template<context_c context_t>
-bool match_or_undo(context_t& ctx, parser_for_context<context_t> auto&& p){
-	auto start_pos = ctx.getPosition();
-	if(match(ctx,p)){
-		return true;
-	}else{
-		ctx.setPosition(start_pos);
-		p._undo(ctx);
-		return false;
-	}
-}
-template<context_c context_t>
-bool match(context_t& ctx, parser_for_context<context_t> auto&& p){
-	if constexpr(!std::is_same_v<void,decltype(ctx.notify_enter(p))>){
-		auto msg = ctx.notify_enter(p);
-		auto ret = p._match(ctx);
-		ctx.notify_leave(p,ret,msg);
-		return ret;
-	}else{
-		ctx.notify_enter(p);
-		auto ret = p._match(ctx);
-		ctx.notify_leave(p,ret);
-		return ret;
-	}
-}
-bool match(std::string s, parser_for_context<basic_context> auto&& p){
+bool parse(std::string s, parser_for_context<basic_context> auto&& p){
 	basic_context ctx(std::move(s));
-	return match(ctx,std::forward<std::decay_t<decltype(p)>>(p));
+	return parse(ctx,std::forward<std::decay_t<decltype(p)>>(p));
 }
-template<typename P, typename context, typename ... ARGS>
-concept parser_callable = requires(P p, context ctx, ARGS...args){
-	{
-		p._parse(ctx,args...)
-	} -> std::same_as<bool>;
-};
 template<context_c context_t, typename P, typename...ARGS> 
-requires parser_for_context<std::decay_t<P>, context_t> && parser_callable<P,context_t,ARGS...>
+requires parser_for_context<std::decay_t<P>, context_t> 
 bool parse_or_undo(context_t& ctx, P&& p, ARGS&...args) {
 	using P_t = std::decay_t<P>;
 	auto start_pos = ctx.getPosition();
@@ -103,11 +69,16 @@ bool parse_or_undo(context_t& ctx, P&& p, ARGS&...args) {
 	}
 }
 template<context_c context_t, typename P, typename...ARGS> 
-requires parser_for_context<std::decay_t<P>, context_t> && parser_callable<P,context_t,ARGS...>
+requires parser_for_context<std::decay_t<P>, context_t> 
 bool parse(context_t& ctx, P&& p, ARGS&...args) {
 	using P_t = std::decay_t<P>;
-	if constexpr(!rparser<P_t>){
-		return match(ctx,std::forward<P_t>(p));
+	static_assert(sizeof...(ARGS) == 0 || sizeof...(ARGS) == list_size<typename P_t::UNPARSED_LIST>::value,"invalid amount of arguments to ezpz::parse");
+	if constexpr(sizeof...(ARGS) == 0 && list_size<typename P_t::UNPARSED_LIST>::value != 0){
+		using hold_t = typename instantiate_list<hold_normal, typename P_t::UNPARSED_LIST>::type;
+		hold_t hold;
+		return hold.apply([&](auto&...args){
+			return parse(ctx,p,args...);
+		});
 	}else{
 		if constexpr(!std::is_same_v<void,decltype(ctx.notify_enter(p))>){
 			auto msg = ctx.notify_enter(p);
@@ -127,7 +98,6 @@ public:
 	using active = active_f;
 	using UNPARSED_LIST = TLIST<EOL>;
 
-	constexpr bool _match(auto&){return true;};
 	constexpr bool _parse(auto&){return true;};
 	constexpr void _undo(auto&) {};
 	inline std::string name() const {return "";}
@@ -141,7 +111,7 @@ public:
 
 	f_parser_t(F_TYPE& of) : f(of) {}
 	f_parser_t(F_TYPE&& of) : f(std::move(of)) {}
-	bool _match(auto& ctx) {
+	bool _parse(auto& ctx) {
 		return f(ctx);
 	}
 	bool dbg_inline() const {
@@ -180,8 +150,8 @@ struct bi_comb : public parse_object {
 template<parser T1, parser T2>
 struct simple_or_parser : public bi_comb<T1,T2> {
 	using parent_t = bi_comb<T1,T2>;
-	bool _match(auto& ctx) {
-		return match_or_undo(ctx,parent_t::t1.get()) || match(ctx,parent_t::t2.get());
+	bool _parse(auto& ctx) {
+		return parse_or_undo(ctx,parent_t::t1.get()) || parse(ctx,parent_t::t2.get());
 	};
 	bool dbg_inline(){
 		return true;
@@ -190,8 +160,8 @@ struct simple_or_parser : public bi_comb<T1,T2> {
 template<parser T1, parser T2>
 struct simple_and_parser : public bi_comb<T1,T2> {
 	using parent_t = bi_comb<T1,T2>;
-	bool _match(auto& ctx) {
-		return match(ctx,parent_t::t1.get()) && match(ctx,parent_t::t2.get());
+	bool _parse(auto& ctx) {
+		return parse(ctx,parent_t::t1.get()) && parse(ctx,parent_t::t2.get());
 	};
 	bool dbg_inline(){
 		return true;
