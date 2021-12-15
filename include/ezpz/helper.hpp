@@ -13,7 +13,11 @@ inline struct print_t {
 	};
 } print;
 inline parser auto fail = f_parser([](auto&){return false;});
-inline parser auto eoi = f_parser([](auto& ctx){return ctx.done();});
+inline struct eoi_t : public parse_object {
+	bool _match(auto& ctx){
+		return ctx.done();
+	}
+} eoi;
 
 auto copy(auto&& val){
 	auto cp = val;

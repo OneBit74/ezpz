@@ -5,6 +5,7 @@
 #include <optional>
 #include <tuple>
 
+
 template<typename F, typename _RET, typename _ARGS>
 struct f_wrapper : public F {
 	using RET = _RET;
@@ -31,11 +32,7 @@ struct nr_parser : public parse_object {
 	[[no_unique_address]] REM parent;
 	[[no_unique_address]] unp f;
 
-	nr_parser(unp&& f, REM& parent) :
-		parent(std::forward<REM>(parent)),
-		f(std::forward<unp>(f))
-	{};
-	nr_parser(unp&& f, REM&& parent) :
+	nr_parser(auto&& f, auto&& parent) :
 		parent(std::forward<REM>(parent)),
 		f(std::forward<unp>(f))
 	{};
@@ -123,9 +120,9 @@ template<parser LHS, parser RHS>
 struct join_p : public parse_object {
 	using UNPARSED_LIST = typename append_list<typename LHS::UNPARSED_LIST, typename RHS::UNPARSED_LIST>::type;
 	using active = active_t;
-	LHS lhs;
-	RHS rhs;
-	join_p(LHS&& p1, RHS&& p2) :
+	[[no_unique_address]] dont_store_empty<LHS> lhs;
+	[[no_unique_address]] dont_store_empty<RHS> rhs;
+	join_p(auto&& p1, auto&& p2) :
 		lhs(std::forward<LHS>(p1)),
 		rhs(std::forward<RHS>(p2))
 	{}
@@ -134,10 +131,10 @@ struct join_p : public parse_object {
 	bool _parse(auto& ctx, ARGS&...args){
 		using L = TLIST<ARGS...>;
 		auto cb_lhs = [&](auto&...few_args){
-				return parse(ctx,lhs,few_args...);
+				return parse(ctx,lhs.get(),few_args...);
 		};
 		auto cb_rhs = [&](auto&...few_args){
-				return parse(ctx,rhs,few_args...);
+				return parse(ctx,rhs.get(),few_args...);
 		};
 		using front_t = typename instantiate_list<takefront_and_call, typename get_ref_list<typename LHS::UNPARSED_LIST>::type>::type;
 		auto ret = front_t::call(cb_lhs,args...);
@@ -154,8 +151,8 @@ struct join_p : public parse_object {
 		},ctx);
 	}
 	void _undo(auto& ctx){
-		rhs._undo(ctx);
-		lhs._undo(ctx);
+		rhs.get()._undo(ctx);
+		lhs.get()._undo(ctx);
 	}
 
 	bool dbg_inline() const {
@@ -166,6 +163,7 @@ struct join_p : public parse_object {
 
 template<typename parser>
 struct activated : public parser {
+	using parser::parser;
 	using active = active_t;
 	activated(parser&& self) : parser(self) {};
 };
@@ -237,17 +235,16 @@ struct or_parser : public parse_object {
 	using UNPARSED_LIST = TLIST<ret_type>;
 	using active = active_t;
 
-	[[no_unique_address]] P1 p1;
-	[[no_unique_address]] P2 p2;
-	or_parser(P1&& op1, P2&& op2) : p1(std::move(op1)), p2(std::move(op2)) {}
-	or_parser(P1&& op1, const P2& op2) : p1(std::move(op1)), p2(op2) {}
-	or_parser(const P1& op1, P2&& op2) : p1(op1), p2(std::move(op2)) {}
-	or_parser(const P1& op1, const P2& op2) : p1(op1), p2(op2) {}
+	[[no_unique_address]] dont_store_empty<P1> p1;
+	[[no_unique_address]] dont_store_empty<P2> p2;
+
+	or_parser(auto&& op1, auto&& op2) : p1(std::forward<P1>(op1)), p2(std::forward<P2>(op2)) {}
 
 	bool _parse(auto& ctx, ret_type& ret){
-		auto attempt = [&]<parser T>(T& t) -> bool{
-			if constexpr( rparser<T> ){
-				using h_t = typename apply_list<hold_normal,typename T::UNPARSED_LIST>::type;
+		auto attempt = [&]<parser T>(T&& t) -> bool{
+			using parser_t = std::decay_t<T>;
+			if constexpr( rparser<parser_t> ){
+				using h_t = typename apply_list<hold_normal,typename parser_t::UNPARSED_LIST>::type;
 		
 				h_t h;
 				auto success = h.apply([&](auto& ctx, auto&...args){
@@ -263,7 +260,7 @@ struct or_parser : public parse_object {
 				return match_or_undo(ctx,t);
 			}
 		};
-		return attempt(p1) || attempt(p2);
+		return attempt(p1.get()) || attempt(p2.get());
 	}
 	bool _match(auto& ctx){
 		using hold_type = typename instantiate_list<hold,UNPARSED_LIST>::type;
@@ -343,7 +340,7 @@ template<typename ... ARGS>
 auto fr_parser(auto&& f){
 	using F_TYPE = std::decay_t<decltype(f)>;
 	using parser = fr_parser_t<F_TYPE,ARGS...>;
-	return nr_parser<VOID,parser,ARGS...>({},parser{std::forward<F_TYPE>(f)});
+	return nr_parser<VOID,parser,ARGS...>(VOID{},parser{std::forward<F_TYPE>(f)});
 }
 template<context_c context_t, typename...UNPARSED>
 struct rpo : public parse_object{

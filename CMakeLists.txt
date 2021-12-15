@@ -29,11 +29,11 @@ include_directories(fmt)
 
 include_directories(include)
 
+add_executable(graph examples/graph.cpp)
+
 add_executable(expr examples/arith_expr_repl.cpp)
-target_link_libraries(expr fmt)
 
 add_executable(xml examples/xml.cpp)
-target_link_libraries(xml fmt)
 
 find_package(GTest REQUIRED)
 add_executable(stest

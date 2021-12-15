@@ -132,6 +132,10 @@ struct number_parser : public parse_object {
 		if(negative)ret = -ret;
 		return true;
 	}
+	bool _match(auto& ctx){
+		num_t ret;
+		return _parse(ctx,ret);
+	}
 };
 template<typename num_t, int base>
 auto number = number_parser<num_t,base>{};

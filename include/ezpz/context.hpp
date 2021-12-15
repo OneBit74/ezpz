@@ -4,6 +4,7 @@
 #include <regex>
 #include <iostream>
 #include <cxxabi.h>
+#include <cassert>
  
 template<typename T>
 std::string type_name()
@@ -45,7 +46,7 @@ public:
 	min_context() = default;
 	inline min_context(std::string str) : input(std::move(str)) {}
 
-	inline char token() const {return input[pos];}
+	inline char token() const {assert(!done());return input[pos];}
 	inline bool done() const {return pos == input.size();}
 	inline void advance() {
 		++pos;

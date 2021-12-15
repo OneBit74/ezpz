@@ -1,6 +1,4 @@
-#include "matcher.hpp"
-#include "ezpz.hpp"
-#include "unparser.hpp"
+#include "ezpz/ezpz.hpp"
 #include <iostream>
 
 struct GraphFactory {
@@ -15,7 +13,7 @@ struct GraphFactory {
 			std::cout << "\t" << uid << "[label=\"" << name << "\\n" << captured << "\"];\n";
 			for(const auto& child : children) {
 				child.print();
-				std::cout << "\t" << uid << " -- " << child.uid << "\;\n";
+				std::cout << "\t" << uid << " -- " << child.uid << ";\n";
 			}
 		}
 	};
@@ -26,14 +24,14 @@ struct GraphFactory {
 
 	using node_handle = int;
 	void push_node(std::string_view name){
-		state.emplace(name,std::string_view{},std::vector<Node>{},uid_counter++);
+		state.push(Node{name,std::string_view{},std::vector<Node>{},uid_counter++});
 	}
 	void pop_node(bool success, std::string_view captured){
 		auto cur = state.top();
 		state.pop();
 		if(success && !state.empty()){
 			cur.captured = captured;
-			state.top().children.emplace_back(std::move(cur));
+			state.top().children.push_back(std::move(cur));
 		}
 	}
 	void print_all(){
@@ -54,7 +52,7 @@ struct node_parser : public parse_object {
 	node_parser(std::string_view name, P&& p) : _name(name), p(std::move(p)) {}
 	node_parser(std::string_view name, P& p) : _name(name), p(p) {}
 
-	bool _parse(context& ctx, auto& ... args){
+	bool _parse(auto& ctx, auto& ... args){
 		graph_factory.push_node(_name);
 		auto start = ctx.pos;
 		auto ret = parse(ctx,p,args...);
@@ -62,10 +60,10 @@ struct node_parser : public parse_object {
 		graph_factory.pop_node(ret,captured);
 		return ret;
 	}
-	void _undo(context& ctx) {
+	void _undo(auto& ctx) {
 		p._undo(ctx);
 	}
-	bool _match(context& ctx){
+	bool _match(auto& ctx){
 		graph_factory.push_node(_name);
 		auto start = ctx.pos;
 		auto ret = match(ctx,p);
@@ -81,11 +79,50 @@ parser auto node(std::string_view name, parser auto&& parser){
 	using P_t = typename std::decay_t<decltype(parser)>;
 	return node_parser<P_t>{name,std::forward<P_t>(parser)};
 }
+template<typename...TS>
+struct graph_context : public basic_context {
+	using LIST = TLIST<TS...>;
+	
+	std::stack<int> nodes;
+	int counter = 0;
+	std::ostringstream oss;
+
+	graph_context(std::string_view sv) : basic_context(std::string{sv}) {
+		oss << "strict graph {\n";
+		oss << "\t0[label=\"root\"];\n";
+		nodes.push(counter++);
+	}
+
+	void print(){
+		std::cout << oss.str() << "}\n";
+	}
+
+	int notify_enter(auto& p){
+		if constexpr(contains<LIST,std::decay_t<decltype(p)>>::value){
+			nodes.push(counter++);
+		}
+		return basic_context::notify_enter(p);
+	}
+	void notify_leave(auto& p, bool success, int start){
+		basic_context::notify_leave(p,success,start);
+		using parser_t = std::decay_t<decltype(p)>;
+		if constexpr(contains<LIST,parser_t>::value){
+			auto id = nodes.top();
+			oss << "\t" << id << "[label=\""<< type_name<parser_t>() << "\"]" << ";\n";
+			nodes.pop();
+			oss << "\t" << nodes.top() << " -- " << id << ";\n";
+			
+		}
+	}
+};
 int main(){
-	auto my_num = node("number",decimal<int>);
-	rpo<> all;
-	all = my_num+(optional >> (ws+ref(all)));
-	context ctx("123 456 789 420 69");
-	match(ctx, all);
-	graph_factory.print_all();
+	/* auto my_num = node("number",decimal<int>); */
+	/* basic_rpo<> all; */
+	/* all = my_num+(optional(ws+ref(all))); */
+	/* basic_context ctx("123 456 789 420 69"); */
+	/* match(ctx, all); */
+	/* graph_factory.print_all(); */
+	graph_context<ws_t,std::decay_t<decltype(decimal<int>)>> ctx("123 456");
+	match(ctx,decimal<int>+ws+decimal<int>);
+	ctx.print();
 }

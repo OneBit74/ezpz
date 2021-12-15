@@ -153,17 +153,35 @@ auto f_parser(F_TYPE&& f){
 	auto ret = f_parser_t<F_TYPE>{std::forward<F_TYPE>(f)};
 	return ret;
 }
+template<parser T>
+struct dont_store_empty {
+	T parser;
+	dont_store_empty(auto&& parser) : parser(std::forward<T>(parser)) {}
+
+	T& get(){
+		return parser;
+	}
+};
+
+template<parser T> requires std::is_empty_v<T>  
+struct dont_store_empty<T>{
+	dont_store_empty(auto&&) {}
+	T& get(){
+		return *(T*)(1);
+	}
+};
+
 template<parser T1, parser T2>
 struct bi_comb : public parse_object {
-	[[no_unique_address]] T1 t1;
-	[[no_unique_address]] T2 t2;
+	[[no_unique_address]] dont_store_empty<T1> t1;
+	[[no_unique_address]] dont_store_empty<T2> t2;
 	bi_comb(auto&& p1, auto&& p2) : t1(std::forward<T1>(p1)), t2(std::forward<T2>(p2)) {}
 };
 template<parser T1, parser T2>
 struct simple_or_parser : public bi_comb<T1,T2> {
 	using parent_t = bi_comb<T1,T2>;
 	bool _match(auto& ctx) {
-		return match_or_undo(ctx,parent_t::t1) || match(ctx,parent_t::t2);
+		return match_or_undo(ctx,parent_t::t1.get()) || match(ctx,parent_t::t2.get());
 	};
 	bool dbg_inline(){
 		return true;
@@ -173,7 +191,7 @@ template<parser T1, parser T2>
 struct simple_and_parser : public bi_comb<T1,T2> {
 	using parent_t = bi_comb<T1,T2>;
 	bool _match(auto& ctx) {
-		return match(ctx,parent_t::t1) && match(ctx,parent_t::t2);
+		return match(ctx,parent_t::t1.get()) && match(ctx,parent_t::t2.get());
 	};
 	bool dbg_inline(){
 		return true;
@@ -181,11 +199,15 @@ struct simple_and_parser : public bi_comb<T1,T2> {
 };
 template<parser T1, parser T2>
 parser auto operator+(T1&& lhs, T2&& rhs){
-	using p_type = simple_and_parser<T1,T2>;
-	return p_type{bi_comb<T1,T2>{std::forward<T1>(lhs), std::forward<T2>(rhs)}};
+	using T1_t = std::decay_t<T1>;
+	using T2_t = std::decay_t<T2>;
+	using p_type = simple_and_parser<T1_t,T2_t>;
+	return p_type{bi_comb<T1_t,T2_t>{std::forward<T1_t>(lhs), std::forward<T2_t>(rhs)}};
 }
 template<parser T1, parser T2>
 parser auto operator|(T1&& lhs, T2&& rhs){
-	using p_type = simple_or_parser<T1,T2>;
-	return p_type{bi_comb<T1,T2>{std::forward<T1>(lhs), std::forward<T2>(rhs)}};
+	using T1_t = std::decay_t<T1>;
+	using T2_t = std::decay_t<T2>;
+	using p_type = simple_or_parser<T1_t,T2_t>;
+	return p_type{bi_comb<T1_t,T2_t>{std::forward<T1_t>(lhs), std::forward<T2_t>(rhs)}};
 }
