@@ -1,47 +1,7 @@
 #include "ezpz/ezpz.hpp"
 #include <cmath>
 #include <iostream>
-#include <fstream>
 
-/* void m1(){ */
-/* 	std::ifstream t("temp"); */
-/* 	std::stringstream buffer; */
-/* 	buffer << t.rdbuf(); */
-
-/* 	/1* context ctx("asd(asd<fd[asd,asd]>)"); *1/ */
-/* 	basic_context ctx(buffer.str()); */
-/* 	/1* ctx.debug = true; *1/ */
-
-/* 	auto level = 0; */
-/* 	auto indent = [&](){ */
-/* 		for(int i = 0; i < level; ++i){ */
-/* 			std::cout << ' '; */
-/* 		} */
-/* 	}; */
-/* 	auto dec_indent = [&](){ */
-/* 		level--; */
-/* 		level = std::max(0,level); */
-/* 	}; */
-/* 	auto inc_indent = [&](){ */
-/* 		level++; */
-/* 	}; */
-/* 	auto print_one = [](auto& x){ */
-/* 		std::cout << x << std::flush; */
-/* 	}; */
-/* 	auto nl = [](){ */
-/* 		std::cout << '\n'; */
-/* 	}; */
-/* 	auto p = */ 
-/* 		any */
-/* 			( (capture("operator>>"_p|regex("f_wrapper\\<[^\\>]*\\>"))*print_one*inc_indent) */
-/* 			| (capture("("_p|"<"|"[")*print_one*nl*inc_indent*indent) */
-/* 			| (capture(")"_p|">"|"]")*dec_indent*nl*indent*print_one) */
-/* 			| (capture(text_parser(", "))*print_one*nl*indent) */
-/* 			| capture(single)*print_one */
-/* 			); */
-/* 	std::cout << sizeof(p) << std::endl; */
-/* 	std::cout << parse(ctx,p+eoi) << std::endl; */
-/* } */
 int main(){
 
 	using num_t = float;
@@ -77,11 +37,20 @@ int main(){
 	auto ident = capture("%" | plus(alpha));
 	std::cout << sizeof(p12) << std::endl;
 	std::unordered_map<std::string,num_t> store;
+	auto function = 
+		  ( "sin("+!(ref(last)*[](auto& val){return std::sin(val);})+")" )
+		| ( "cos("+!(ref(last)*[](auto& val){return std::cos(val);})+")" )
+		| ( "abs("+!(ref(last)*[](auto& val){return std::abs(val);})+")" )
+		| ( "sqrt("+!(ref(last)*[](auto& val){return (num_t)(std::sqrt(val));})+")" )
+		;
+	std::cout << sizeof(function) << std::endl;
 	base = 
-		("-"+ws+!(ref(base)*std::negate<num_t>())) |
-		("("+ws+!ref(last)+ws+")") |
-		!decimal<num_t> |
-		!(ident*[&](auto id){
+		  ("-"+ws+!(ref(base)*std::negate<num_t>()))
+		| ("("+ws+!ref(last)+ws+")")
+		| !decimal<num_t>
+		| !("pi"_p*ret<num_t>(std::numbers::pi))
+		| function
+		| !(ident*[&](auto id){
 			auto ret =  store[std::string{id}];
 			std::cout << "loading " << id << " with " << ret << std::endl;
 			return ret;
@@ -92,11 +61,13 @@ int main(){
 		std::cout << "storing " << id << " with " << val << std::endl;
 		store[std::string{id}] = val;
 	};
+
 	while(true){
 		std::string line;
 		std::getline(std::cin,line);
 		if(std::cin.eof())break;
 		basic_context ctx(line);
+		ctx.debug = true;
 		parse(ctx,(assignment | (expr*[&](auto val){store["%"] = val; std::cout << val << std::endl;}) | print("error")));
 	}
 

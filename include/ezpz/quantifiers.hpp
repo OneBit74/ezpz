@@ -5,7 +5,8 @@
 
 template<parser T>
 parser auto plus(T&& rhs) {
-	return make_rpo([r=std::forward<T>(rhs)](auto& ctx) mutable {
+	using TT = std::decay_t<T>;
+	return make_rpo([r=std::forward<TT>(rhs)](auto& ctx) mutable {
 		if(!parse(ctx,r))return false;
 		while(parse_or_undo(ctx,r) && !ctx.done()){}
 		return true;
@@ -13,20 +14,23 @@ parser auto plus(T&& rhs) {
 }
 template<parser T>
 parser auto any(T&& rhs) {
-	return make_rpo([r=std::forward<T>(rhs)](auto& ctx) mutable {
+	using TT = std::decay_t<T>;
+	return make_rpo([r=std::forward<TT>(rhs)](auto& ctx) mutable {
 		while(parse_or_undo(ctx,r) && !ctx.done()){}
 		return true;
 	});
 }
 template<typename T>
 parser auto notf(T&& rhs) requires parser<std::decay_t<T>>{
-	return make_rpo([r=std::forward<T>(rhs)](auto& ctx) mutable {
+	using TT = std::decay_t<T>;
+	return make_rpo([r=std::forward<TT>(rhs)](auto& ctx) mutable {
 		return !parse_or_undo(ctx,r);
 	});
 }
 template<parser T>
 parser auto optional(T&& rhs) {
-	auto ret = std::forward<T>(rhs) | notf(fail);
+	using TT = std::decay_t<T>;
+	auto ret = std::forward<TT>(rhs) | notf(fail);
 	return ret;
 }
 
