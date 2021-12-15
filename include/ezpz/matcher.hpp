@@ -23,7 +23,7 @@ struct text_parser {
 	}
 };
 inline parser auto text(const std::string_view& sv) {
-	return f_parser([&](auto& ctx){
+	return make_rpo([&](auto& ctx){
 		for(size_t i = 0; i < sv.size(); ++i){
 			if(sv[i] != ctx.token())return false;
 			ctx.advance();
@@ -77,7 +77,7 @@ inline struct ws_t {
 		return true;
 	}
 } ws;
-inline parser auto digit = f_parser([](basic_context_c auto& ctx){
+inline parser auto digit = make_rpo([](basic_context_c auto& ctx){
 	if(ctx.done())return false;
 	if(std::isdigit(ctx.token())){
 		++ctx.pos;
@@ -85,7 +85,7 @@ inline parser auto digit = f_parser([](basic_context_c auto& ctx){
 	}
 	return false;
 });
-inline parser auto graph_letter = f_parser([](auto& ctx){
+inline parser auto graph_letter = make_rpo([](auto& ctx){
 	if(ctx.done())return false;
 	if(std::isgraph(ctx.token())){
 		++ctx.pos;
@@ -175,7 +175,7 @@ inline struct single_p {
 } single;
 
 auto token(auto&& val){
-	return f_parser([=](auto& ctx){
+	return make_rpo([=](auto& ctx){
 		auto ret = ctx.token() == val;
 		ctx.advance();
 		return ret;
@@ -183,7 +183,7 @@ auto token(auto&& val){
 }
 
 inline auto regex(std::string_view pattern){
-	return fr_parser<std::string_view>([=](basic_context& ctx, std::string_view& output){
+	return make_rpo<std::string_view>([=](basic_context& ctx, std::string_view& output){
 		const std::string str{pattern};
 		auto [regex_iter,b] = ctx.regex_cache.try_emplace(str,str);
 		std::smatch match;

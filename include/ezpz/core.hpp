@@ -276,10 +276,9 @@ parser auto operator+(P1&& p1, P2&& p2){
 		using forget_t = forget<P1_t>;
 		return join_p<forget_t, P2_t>(forget_t{std::forward<P1_t>(p1)},std::forward<P2_t>(p2));
 	} else {
-		return f_parser([first = std::forward<P1>(p1),second=std::forward<P2>(p2)] 
-		(auto& ctx) mutable {
-			return parse(ctx,first) && parse(ctx,second);
-		});
+		using forget_t1 = forget<P1_t>;
+		using forget_t2 = forget<P2_t>;
+		return join_p<forget_t1, forget_t2>(forget_t1{std::forward<P1_t>(p1)},forget_t2{std::forward<P2_t>(p2)});
 	}
 }
 template<parser P, typename F>
@@ -321,7 +320,7 @@ struct fr_parser_t {
 };
 
 template<typename ... ARGS>
-auto fr_parser(auto&& f){
+auto make_rpo(auto&& f){
 	using F_TYPE = std::decay_t<decltype(f)>;
 	using parser = fr_parser_t<F_TYPE,ARGS...>;
 	return nr_parser<VOID,parser,ARGS...>(VOID{},parser{std::forward<F_TYPE>(f)});

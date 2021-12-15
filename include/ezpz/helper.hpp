@@ -5,14 +5,14 @@
 inline struct print_t {
 	static void print_text(std::string_view sv);
 	parser auto  operator()(std::string_view text){
-		auto ret =  f_parser([=](auto){
+		auto ret =  make_rpo([=](auto){
 					std::cout << text << std::endl;
 					return true;
 				});
 		return ret;
 	};
 } print;
-inline parser auto fail = f_parser([](auto&){return false;});
+inline parser auto fail = make_rpo([](auto&){return false;});
 inline struct eoi_t {
 	using active = active_f;
 	using UNPARSED_LIST = TLIST<EOL>;

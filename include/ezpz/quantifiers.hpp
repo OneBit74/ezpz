@@ -5,7 +5,7 @@
 
 template<parser T>
 parser auto plus(T&& rhs) {
-	return f_parser([r=std::forward<T>(rhs)](auto& ctx) mutable {
+	return make_rpo([r=std::forward<T>(rhs)](auto& ctx) mutable {
 		if(!parse(ctx,r))return false;
 		while(parse_or_undo(ctx,r) && !ctx.done()){}
 		return true;
@@ -13,14 +13,14 @@ parser auto plus(T&& rhs) {
 }
 template<parser T>
 parser auto any(T&& rhs) {
-	return f_parser([r=std::forward<T>(rhs)](auto& ctx) mutable {
+	return make_rpo([r=std::forward<T>(rhs)](auto& ctx) mutable {
 		while(parse_or_undo(ctx,r) && !ctx.done()){}
 		return true;
 	});
 }
 template<typename T>
 parser auto notf(T&& rhs) requires parser<std::decay_t<T>>{
-	return f_parser([r=std::forward<T>(rhs)](auto& ctx) mutable {
+	return make_rpo([r=std::forward<T>(rhs)](auto& ctx) mutable {
 		return !parse_or_undo(ctx,r);
 	});
 }
@@ -31,7 +31,7 @@ parser auto optional(T&& rhs) {
 }
 
 auto times(int amount,auto&& parser){
-	return f_parser([=](auto& ctx) mutable {
+	return make_rpo([=](auto& ctx) mutable {
 			for(int i = 0; i < amount; ++i){
 				if(!parse(ctx,parser))return false;
 			}
@@ -40,7 +40,7 @@ auto times(int amount,auto&& parser){
 	);
 }
 auto max(int amount,auto&& parser){
-	return f_parser([=](auto& ctx) mutable {
+	return make_rpo([=](auto& ctx) mutable {
 		int counter = 0;
 		while(true){
 			auto start = ctx.getPosition();
@@ -55,7 +55,7 @@ auto max(int amount,auto&& parser){
 	});
 }
 auto min(int amount,auto&& parser){
-	return f_parser([=](auto& ctx) mutable {
+	return make_rpo([=](auto& ctx) mutable {
 		int counter = 0;
 		while(true){
 			auto start = ctx.getPosition();

@@ -11,7 +11,7 @@ int main(){
 		std::string_view text_content;
 	};
 	basic_rpo<node> xml_node;
-	xml_node = fr_parser<node>([&](auto& ctx, node& ret){
+	xml_node = make_rpo<node>([&](auto& ctx, node& ret){
 		return parse(ctx,
 			"<"+ws+(capture(regex("\\w+")) * assign(ret.name)) + ws +">"+ws+
 			(

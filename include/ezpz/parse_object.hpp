@@ -85,27 +85,6 @@ bool parse(context_t& ctx, P&& p, ARGS&...args) {
 	}
 }
 
-template<typename F_TYPE> 
-struct f_parser_t {
-	using active = active_f;
-	using UNPARSED_LIST = TLIST<EOL>;
-
-	F_TYPE f;
-
-	f_parser_t(F_TYPE& of) : f(of) {}
-	f_parser_t(F_TYPE&& of) : f(std::move(of)) {}
-	bool _parse(auto& ctx) {
-		return f(ctx);
-	}
-	bool dbg_inline() const {
-		return false;
-	}
-};
-template<typename F_TYPE>
-auto f_parser(F_TYPE&& f){
-	auto ret = f_parser_t<F_TYPE>{std::forward<F_TYPE>(f)};
-	return ret;
-}
 template<parser T>
 struct dont_store_empty {
 	T parser;

@@ -47,7 +47,7 @@ int main(){
 	using num_t = float;
 
 	auto op_maker_la = [](std::string_view op, auto upper, auto&& operation){
-		return fr_parser<num_t>([op,operation,upper](basic_context& ctx, num_t& num) mutable {
+		return make_rpo<num_t>([op,operation,upper](basic_context& ctx, num_t& num) mutable {
 			return parse(ctx,upper*assign(num)+ws+(any(op+ws+ref(upper)*
 					[&](num_t val){
 						std::cout << num << " " << op << " " << val << " = " << operation(num,val) << std::endl;

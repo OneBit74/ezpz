@@ -3,6 +3,17 @@
 #include <gtest/gtest.h>
 #include <rapidcheck/gtest.h>
 
+TEST(ezpz,make_rpo){
+	basic_context ctx;
+	auto p1 = make_rpo([](auto& ctx){
+		return parse(ctx,ws);
+	});
+	EXPECT_TRUE(parse("  ",p1+eoi));
+	auto p2 = make_rpo<int>([](auto& ctx,int& ret){
+		return parse(ctx,decimal<int>,ret);
+	});
+	EXPECT_TRUE(parse("123",p2+eoi));
+}
 TEST(context,done){
 	basic_context ctx;
 	EXPECT_TRUE(ctx.done());
@@ -171,7 +182,7 @@ TEST(helper,ref){
 }
 TEST(matcher,text_parser){
 	bool success;
-	auto parser = "hello" + f_parser([&](auto&){
+	auto parser = "hello" + make_rpo([&](auto&){
 		success = true;
 		return true;
 	});
