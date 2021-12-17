@@ -75,23 +75,3 @@ auto min(int amount,auto&& parser){
 }
 
 
-/* struct max_t { */
-/* 	int val; */
-/* 	auto operator>>(std::string_view sv) -> parse_object_ref; */
-/* 	auto operator>>(parse_object_ref inner) -> parse_object_ref; */
-/* }; */
-/* struct min_t { */
-/* 	int val; */
-/* 	auto operator>>(std::string_view sv) -> parse_object_ref; */
-/* 	auto operator>>(parse_object_ref inner) -> parse_object_ref; */
-/* }; */
-/* struct minmax_t { */
-/* 	int val1,val2; */
-/* 	auto operator>>(std::string_view sv) -> parse_object_ref; */
-/* 	auto operator>>(parse_object_ref inner) -> parse_object_ref; */
-/* }; */
-
-/* auto min(int val) -> min_t; */
-/* auto max(int val) -> max_t; */
-/* auto minmax(int val1, int val2) -> minmax_t; */
-/* auto times(int val) -> minmax_t; */

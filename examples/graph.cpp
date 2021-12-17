@@ -38,7 +38,7 @@ struct graph_context : public basic_context {
 	}
 };
 int main(){
-	graph_context<ws_t,std::decay_t<decltype(decimal<int>)>> ctx("123 456");
+	graph_context<ws_p,std::decay_t<decltype(decimal<int>)>> ctx("123 456");
 	parse(ctx,decimal<int>+ws+decimal<int>);
 	ctx.print();
 }

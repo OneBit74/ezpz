@@ -67,7 +67,7 @@ int main(){
 		std::getline(std::cin,line);
 		if(std::cin.eof())break;
 		basic_context ctx(line);
-		ctx.debug = true;
+		/* ctx.debug = true; */
 		parse(ctx,(assignment | (expr*[&](auto val){store["%"] = val; std::cout << val << std::endl;}) | print("error")));
 	}
 

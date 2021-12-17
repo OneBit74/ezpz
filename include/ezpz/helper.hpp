@@ -2,18 +2,22 @@
 #include "ezpz/parse_object.hpp"
 #include <iostream>
 
-inline struct print_t {
-	static void print_text(std::string_view sv);
-	parser auto  operator()(std::string_view text){
-		auto ret =  make_rpo([=](auto){
-					std::cout << text << std::endl;
-					return true;
-				});
-		return ret;
-	};
-} print;
+struct print_p {
+	using active = active_f;
+	using UNPARSED_LIST = TLIST<EOL>;
+
+	std::string_view text;
+	bool _parse(auto&){
+		std::cout << text << std::endl;
+		return true;
+	}
+};
+parser auto print(std::string_view text){
+	return print_p{text};
+};
+
 inline parser auto fail = make_rpo([](auto&){return false;});
-inline struct eoi_t {
+inline struct eoi_p {
 	using active = active_f;
 	using UNPARSED_LIST = TLIST<EOL>;
 
@@ -22,27 +26,19 @@ inline struct eoi_t {
 	}
 } eoi;
 
-auto copy(auto&& val){
-	auto cp = val;
-	return cp;
-}
-
 template<parser parser>
-class parse_object_ref {
+class ref_p {
 public:
 	using active = typename parser::active;
 	using UNPARSED_LIST = typename parser::UNPARSED_LIST;
 
 	parser& p;
-	parse_object_ref(parser& op) : p(op) {}
+	ref_p(parser& op) : p(op) {}
 
-	bool _parse(auto& ctx) {
-		return p._parse(ctx);
-	}
 	void _undo(auto& ctx) {
 		undo(ctx,p);
 	}
-	bool _parse(auto& ctx, auto&...args) requires rparser<parser>{
+	bool _parse(auto& ctx, auto&...args) {
 		return parse(ctx,p,args...);
 	}
 	bool dbg_inline(){
@@ -52,17 +48,17 @@ public:
 
 parser auto ref(auto& p){
 	using inner = std::decay_t<decltype(p)>;
-	return parse_object_ref<inner>{p};
+	return ref_p<inner>{p};
 }
 
 template<parser P>
-struct capture_t {
+struct capture_p {
 	using active = active_f;
 	using UNPARSED_LIST = TLIST<std::string_view>;
 
 	P parent;
-	capture_t(P&& op) : parent(std::move(op)) {}
-	capture_t(const P& op) : parent(op) {}
+	capture_p(P&& op) : parent(std::move(op)) {}
+	capture_p(const P& op) : parent(op) {}
 	bool _parse(auto& ctx, std::string_view& sv){
 		auto start = ctx.pos;
 		auto ret = parse(ctx,parent);
@@ -76,5 +72,5 @@ struct capture_t {
 template<parser T>
 rparser auto capture(T&& p){
 	using P = std::decay_t<T>;
-	return capture_t<P>(std::forward<P>(p));
+	return capture_p<P>(std::forward<P>(p));
 }

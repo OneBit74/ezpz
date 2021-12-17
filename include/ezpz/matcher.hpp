@@ -5,12 +5,12 @@
 #include <regex>
 
 
-struct text_parser {
+struct text_p {
 	using active = active_f;
 	using UNPARSED_LIST = TLIST<EOL>;
 
 	std::string_view sv;
-	inline text_parser(std::string_view sv) : sv(sv) {}
+	inline text_p(std::string_view sv) : sv(sv) {}
 	
 	inline bool _parse(basic_context_c auto& ctx) {
 		for(char c : sv){
@@ -33,32 +33,32 @@ inline parser auto text(const std::string_view& sv) {
 }
 
 inline parser auto any(std::string_view rhs){
-	return any(text_parser(rhs));
+	return any(text_p(rhs));
 }
 inline parser auto notf(std::string_view rhs){
-	return notf(text_parser(rhs));
+	return notf(text_p(rhs));
 }
 template<parser T>
 parser auto operator|(T&& rhs, std::string_view sv){
-	return std::forward<T>(rhs) | text_parser(sv);
+	return std::forward<T>(rhs) | text_p(sv);
 }
 template<parser T>
 parser auto operator|(std::string_view sv, T&& rhs){
-	return text_parser(sv) | std::forward<T>(rhs);
+	return text_p(sv) | std::forward<T>(rhs);
 }
 template<parser T>
 parser auto operator+(T&& rhs, std::string_view sv){
-	return std::forward<T>(rhs) + text_parser(sv);
+	return std::forward<T>(rhs) + text_p(sv);
 }
 template<parser T>
 parser auto operator+(std::string_view sv, T&& rhs){
-	return text_parser(sv) + std::forward<T>(rhs);
+	return text_p(sv) + std::forward<T>(rhs);
 }
 inline auto operator "" _p(const char* s, size_t len){
-	return text_parser(std::string_view{s,len});
+	return text_p(std::string_view{s,len});
 }
 
-inline struct ws_t {
+inline struct ws_p {
 	using active = active_f;
 	using UNPARSED_LIST = TLIST<EOL>;
 
@@ -96,7 +96,7 @@ inline parser auto graph_letter = make_rpo([](auto& ctx){
 inline parser auto string = "\"" + any(notf("\"")) + "\"";
 
 template<typename num_t, int base> 
-struct number_parser {
+struct number_p{
 	using active = active_f;
 	using UNPARSED_LIST = TLIST<num_t>;
 
@@ -145,7 +145,7 @@ struct number_parser {
 	}
 };
 template<typename num_t, int base>
-auto number = number_parser<num_t,base>{};
+auto number = number_p<num_t,base>{};
 
 template<typename integer>
 auto& decimal = number<integer,10>;

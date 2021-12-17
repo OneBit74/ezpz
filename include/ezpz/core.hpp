@@ -111,12 +111,12 @@ auto takeback_and_call_hlp(auto&& target, auto&& first, auto&&...args){
 }
 
 template<parser LHS, parser RHS>
-struct join_p {
+struct and_p {
 	using UNPARSED_LIST = typename append_list<typename LHS::UNPARSED_LIST, typename RHS::UNPARSED_LIST>::type;
 	using active = active_t;
 	[[no_unique_address]] dont_store_empty<LHS> lhs;
 	[[no_unique_address]] dont_store_empty<RHS> rhs;
-	join_p(auto&& p1, auto&& p2) :
+	and_p(auto&& p1, auto&& p2) :
 		lhs(std::forward<LHS>(p1)),
 		rhs(std::forward<RHS>(p2))
 	{}
@@ -160,15 +160,14 @@ auto operator!(T&& nr) {
 	using P = std::decay_t<T>;
 	return activated<P>(std::forward<P>(nr));
 }
-template<typename parser>
+template<parser parser_t>
 struct forget {
 	using UNPARSED_LIST = TLIST<EOL>;
 	using active = active_f;
 
-	parser p;
+	parser_t p;
 
-	forget(parser& op) : p(op) {};
-	forget(parser&& op) : p(std::move(op)) {};
+	forget(auto&& op) : p(std::forward<parser_t>(op)) {};
 	
 	bool _parse(auto& ctx){
 		return parse(ctx,p);
@@ -215,7 +214,7 @@ struct or_helper {
 
 
 template<parser P1, parser P2>
-struct or_parser {
+struct or_p {
 	using ret_type = typename or_helper<
 		typename P1::UNPARSED_LIST,
 		typename P2::UNPARSED_LIST>::type;
@@ -225,7 +224,7 @@ struct or_parser {
 	[[no_unique_address]] dont_store_empty<P1> p1;
 	[[no_unique_address]] dont_store_empty<P2> p2;
 
-	or_parser(auto&& op1, auto&& op2) : p1(std::forward<P1>(op1)), p2(std::forward<P2>(op2)) {}
+	or_p(auto&& op1, auto&& op2) : p1(std::forward<P1>(op1)), p2(std::forward<P2>(op2)) {}
 
 	bool _parse(auto& ctx, ret_type& ret){
 		auto attempt = [&]<parser T>(T&& t) -> bool{
@@ -259,26 +258,24 @@ parser auto operator|(P1&& p1, P2&& p2){
 	using P1_t = std::decay_t<P1>;
 	using P2_t = std::decay_t<P2>;
 
-	return or_parser<P1_t,P2_t>{std::forward<P1_t>(p1), std::forward<P2_t>(p2)};
+	return or_p<P1_t,P2_t>{std::forward<P1_t>(p1), std::forward<P2_t>(p2)};
 }
 template<parser P1, parser P2> 
 parser auto operator+(P1&& p1, P2&& p2){
 	using P1_t = std::decay_t<P1>;
 	using P2_t = std::decay_t<P2>;
-	if constexpr( std::is_same_v<P2_t,const char*> ){
-		return p1 + text_parser(p2);
-	} else if constexpr(std::is_same_v<active_t,typename P1_t::active> && std::is_same_v<active_t,typename P2_t::active>){
-		return join_p<P1_t,P2_t>{std::forward<P1_t>(p1),std::forward<P2_t>(p2)};
+	if constexpr(std::is_same_v<active_t,typename P1_t::active> && std::is_same_v<active_t,typename P2_t::active>){
+		return and_p<P1_t,P2_t>{std::forward<P1_t>(p1),std::forward<P2_t>(p2)};
 	} else if constexpr(std::is_same_v<active_t,typename P1_t::active> && !std::is_same_v<active_t,typename P2_t::active>){
 		using forget_t = forget<P2_t>;
-		return join_p<P1_t, forget_t>(std::forward<P1_t>(p1),forget_t{std::forward<P2_t>(p2)});
+		return and_p<P1_t, forget_t>(std::forward<P1_t>(p1),forget_t{std::forward<P2_t>(p2)});
 	} else if constexpr(!std::is_same_v<active_t,typename P1_t::active> && std::is_same_v<active_t,typename P2_t::active>){
 		using forget_t = forget<P1_t>;
-		return join_p<forget_t, P2_t>(forget_t{std::forward<P1_t>(p1)},std::forward<P2_t>(p2));
+		return and_p<forget_t, P2_t>(forget_t{std::forward<P1_t>(p1)},std::forward<P2_t>(p2));
 	} else {
 		using forget_t1 = forget<P1_t>;
 		using forget_t2 = forget<P2_t>;
-		return join_p<forget_t1, forget_t2>(forget_t1{std::forward<P1_t>(p1)},forget_t2{std::forward<P2_t>(p2)});
+		return and_p<forget_t1, forget_t2>(forget_t1{std::forward<P1_t>(p1)},forget_t2{std::forward<P2_t>(p2)});
 	}
 }
 template<parser P, typename F>
@@ -344,7 +341,9 @@ struct rpo {
 
 	template<parser T>
 	void operator=(T&& p){
-		f = [p = std::forward<T>(p)](context_t& ctx, auto&...up_args) mutable -> bool {
+		using P_t = std::decay_t<T>;
+		static_assert(std::same_as<typename P_t::UNPARSED_LIST, UNPARSED_LIST>, "unexpected return-types of right-hand-side parser to ezpz::rpo");
+		f = [p = std::forward<P_t>(p)](context_t& ctx, auto&...up_args) mutable -> bool {
 			if constexpr (rparser<T>){
 				return parse(ctx,p,up_args...);
 			}else{
