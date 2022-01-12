@@ -31,11 +31,11 @@ link_libraries(ubsan)
 
 include_directories(include)
 
-add_executable(graph examples/graph.cpp)
-
-add_executable(expr examples/arith_expr_repl.cpp)
+add_executable(expr1 examples/expr_v1.cpp)
+add_executable(expr2 examples/arith_expr_repl.cpp)
 
 add_executable(xml examples/xml.cpp)
+add_executable(json examples/json.cpp)
 
 find_package(GTest REQUIRED)
 add_executable(stest

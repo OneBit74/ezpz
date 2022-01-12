@@ -25,14 +25,14 @@ auto assign_last(T1&& src, REST&&..., T1& dst){
 }
 
 template<typename unp = VOID, typename REM = VOID, typename ... UNPARSED>
-struct nr_parser {
+struct consume_p {
 	using UNPARSED_LIST = TLIST<UNPARSED...>;
 	using active = active_f;
 
 	[[no_unique_address]] REM parent;
 	[[no_unique_address]] unp f;
 
-	nr_parser(auto&& f, auto&& parent) :
+	consume_p(auto&& f, auto&& parent) :
 		parent(std::forward<REM>(parent)),
 		f(std::forward<unp>(f))
 	{};
@@ -92,30 +92,35 @@ struct takefront_and_call{
 	}
 };
 
-template<int how_many>
-auto takeback_and_call(auto&& target, auto&&...args){
-	static_assert(sizeof...(args) >= how_many, "not enough arguments to parse");
-	if constexpr(how_many == 0){
-		return target();
-	}else{
-		return takeback_and_call_hlp<how_many>(target,args...);
+template<typename...ARGS>
+struct takeback_and_call {
+	static auto call(auto&& target, ARGS&&..., auto&&...args){
+		return target(args...);
 	}
-}
-template<int how_many>
-auto takeback_and_call_hlp(auto&& target, auto&& first, auto&&...args){
-	if constexpr(1+sizeof...(args) != how_many){
-		return takeback_and_call_hlp<how_many>(target,args...);
-	}else{
-		return target(first,args...);
-	}
-}
+};
+
+
+template<parser T>
+constexpr bool should_forget = std::is_same_v<typename T::active,active_f>;
 
 template<parser LHS, parser RHS>
 struct and_p {
-	using UNPARSED_LIST = typename append_list<typename LHS::UNPARSED_LIST, typename RHS::UNPARSED_LIST>::type;
+	using L_ARGS = typename t_if_else<
+		should_forget<LHS>,
+		TLIST<EOL>,
+		typename LHS::UNPARSED_LIST
+	>::type;
+	using R_ARGS = typename t_if_else<
+		should_forget<RHS>,
+		TLIST<EOL>,
+		typename RHS::UNPARSED_LIST
+	>::type;
+	using UNPARSED_LIST = typename append_list<L_ARGS,R_ARGS>::type;
 	using active = active_t;
+
 	[[no_unique_address]] dont_store_empty<LHS> lhs;
 	[[no_unique_address]] dont_store_empty<RHS> rhs;
+
 	and_p(auto&& p1, auto&& p2) :
 		lhs(std::forward<LHS>(p1)),
 		rhs(std::forward<RHS>(p2))
@@ -130,11 +135,20 @@ struct and_p {
 		auto cb_rhs = [&](auto&...few_args){
 				return parse(ctx,rhs.get(),few_args...);
 		};
-		using front_t = typename instantiate_list<takefront_and_call, typename get_ref_list<typename LHS::UNPARSED_LIST>::type>::type;
-		auto ret = front_t::call(cb_lhs,args...);
-		/* auto ret = takefront_and_call<list_size<typename LHS::UNPARSED_LIST>::value>(cb_lhs,args...); */
+		bool ret;
+		if constexpr (should_forget<LHS>){
+			ret = parse(ctx,lhs.get());
+		}else{
+			using front_t = typename instantiate_list<takefront_and_call, typename get_ref_list<typename LHS::UNPARSED_LIST>::type>::type;
+			ret = front_t::call(cb_lhs,args...);
+		}
 		if(!ret)return false;
-		ret = takeback_and_call<list_size<typename RHS::UNPARSED_LIST>::value>(cb_rhs,args...);
+		if constexpr (should_forget<RHS>){
+			ret = parse(ctx,rhs.get());
+		} else {
+			using back_t = typename instantiate_list<takeback_and_call, typename get_ref_list<typename LHS::UNPARSED_LIST>::type>::type;
+			ret = back_t::call(cb_rhs,args...);
+		}
 		return ret;
 	}
 	void _undo(auto& ctx){
@@ -149,10 +163,19 @@ struct and_p {
 
 
 template<typename parser>
-struct activated : public parser {
-	using parser::parser;
+struct activated {
+	using UNPARSED_LIST = typename parser::UNPARSED_LIST;
 	using active = active_t;
-	activated(parser&& self) : parser(self) {};
+
+	parser p;
+	activated(auto&& p) : p(std::forward<parser>(p)) {};
+
+	bool dbg_inline(){
+		return true;
+	}
+	bool _parse(auto& ctx, auto&...args){
+		return parse(ctx,p,args...);
+	}
 };
 
 template<parser T> 
@@ -165,7 +188,7 @@ struct forget {
 	using UNPARSED_LIST = TLIST<EOL>;
 	using active = active_f;
 
-	parser_t p;
+	[[no_unique_address]] parser_t p;
 
 	forget(auto&& op) : p(std::forward<parser_t>(op)) {};
 	
@@ -191,7 +214,11 @@ struct inline_variant {
 };
 template<typename ... ARGS>
 struct inline_variant<TLIST<std::variant<ARGS...> > > {
-	using type = TLIST<ARGS...>;
+	using type = TLIST<std::variant<ARGS...>>;
+};
+template<typename T>
+struct inline_variant<TLIST<std::optional<T> > > {
+	using type = TLIST<std::variant<T>>;
 };
 template<typename L1, typename L2>
 struct or_helper {
@@ -203,22 +230,55 @@ struct or_helper {
 	using type = 
 		typename t_if_else<
 			std::is_same_v<NL1,NL2> && list_size<NL1>::value == 1,
-			typename NL1::type,//TODO can be list
+			TLIST<typename NL1::type>,
 			typename t_if_else<
 				list_size<non_dup>::value == 1,
-				std::optional<typename non_dup::type>,
-				typename apply_list<std::variant,non_dup>::type
+				TLIST<typename non_dup::type>,
+				TLIST<typename apply_list<std::variant,non_dup>::type>
 			>::type
 		>::type;
+	/* print_types<NL1,NL2,merge,non_empty,non_dup,L1,L2,type> asd; */
 };
 
+template<typename...A, typename...B> 
+struct or_helper<TLIST<std::variant<A...>>,TLIST<std::variant<B...>>> {
+	using type = typename instantiate_list<std::variant,typename dedup<TLIST<A...,B...>>::type>::type;
+	print_types<type,A...,B...> asd;
+};
+template<typename T> requires (!std::same_as<T,TLIST<EOL>>)
+struct or_helper<T,TLIST<EOL>> {
+	using inner = typename t_if_else<
+			list_size<T>::value == 1,
+			typename T::type,
+			typename apply_list<std::tuple,T>::type
+		>::type;
+	using type = TLIST<std::optional<inner>>;
+};
+template<typename T> requires (!std::same_as<T,TLIST<EOL>>)
+struct or_helper<TLIST<EOL>,T> {
+	using type = typename or_helper<T,TLIST<EOL>>::type;
+};
+template<typename T>
+struct or_helper<T,T> {
+	using type = T;
+};
+
+/* static_assert(std::same_as<or_helper<TLIST<EOL>,TLIST<EOL>>::type,TLIST<EOL>>); */
+/* static_assert(std::same_as<or_helper<TLIST<int>,TLIST<EOL>>::type,TLIST<std::optional<int>>>); */
+/* static_assert(std::same_as<or_helper<TLIST<EOL>,TLIST<int>>::type,TLIST<std::optional<int>>>); */
+/* static_assert(std::same_as<or_helper<TLIST<int>,TLIST<int>>::type,TLIST<int>>); */
+/* static_assert(std::same_as<or_helper<TLIST<int>,TLIST<float>>::type,TLIST<std::variant<int,float>>>); */
+/* static_assert(std::same_as<or_helper<TLIST<std::variant<int,float>>,TLIST<float>>::type,TLIST<std::variant<int,float>>>); */
+
+auto& get_first(auto& first, auto&...){
+	return first;
+}
 
 template<parser P1, parser P2>
 struct or_p {
-	using ret_type = typename or_helper<
+	using UNPARSED_LIST = typename or_helper<
 		typename P1::UNPARSED_LIST,
 		typename P2::UNPARSED_LIST>::type;
-	using UNPARSED_LIST = TLIST<ret_type>;
 	using active = active_t;
 
 	[[no_unique_address]] dont_store_empty<P1> p1;
@@ -226,27 +286,45 @@ struct or_p {
 
 	or_p(auto&& op1, auto&& op2) : p1(std::forward<P1>(op1)), p2(std::forward<P2>(op2)) {}
 
-	bool _parse(auto& ctx, ret_type& ret){
-		auto attempt = [&]<parser T>(T&& t) -> bool{
-			using parser_t = std::decay_t<T>;
-			if constexpr( rparser<parser_t> ){
+	template<typename T,bool undo>
+	auto attempt(T& t, auto& ctx, auto&...ret) -> bool {
+		using parser_t = std::decay_t<T>;
+		if constexpr( rparser<parser_t> ){
+			if constexpr (list_size<UNPARSED_LIST>::value == 1){
 				using h_t = typename apply_list<hold_normal,typename parser_t::UNPARSED_LIST>::type;
-		
+				using ret_type = typename UNPARSED_LIST::type;
+
 				h_t h;
-				auto success = h.apply([&](auto& ctx, auto&...args){
-					return parse_or_undo(ctx,t,args...);
-				},ctx);
+				auto success = h.apply([&](auto&...args){
+					if constexpr(undo){
+						return parse_or_undo(ctx,t,args...);
+					}else{
+						return parse(ctx,t,args...);
+					}
+				});
 				if(success){
-					ret = h.apply([](auto&...args) -> ret_type{
+					get_first(ret...) = h.apply([](auto&...args) -> ret_type{
 						return ret_type{args...};
 					});
 				}
 				return success;
 			}else{
-				return parse_or_undo(ctx,t);
+				if constexpr(undo){
+					return parse_or_undo(ctx,t,ret...);
+				}else{
+					return parse(ctx,t,ret...);
+				}
 			}
-		};
-		return attempt(p1.get()) || attempt(p2.get());
+		}else{
+			if constexpr(undo){
+				return parse_or_undo(ctx,t);
+			}else{
+				return parse(ctx,t);
+			}
+		}
+	}
+	bool _parse(auto& ctx, auto&... ret){
+		return attempt<P1,true>(p1.get(),ctx,ret...) || attempt<P2,false>(p2.get(),ctx,ret...);
 	}
 	bool dbg_inline() const{
 		return true;
@@ -264,19 +342,7 @@ template<parser P1, parser P2>
 parser auto operator+(P1&& p1, P2&& p2){
 	using P1_t = std::decay_t<P1>;
 	using P2_t = std::decay_t<P2>;
-	if constexpr(std::is_same_v<active_t,typename P1_t::active> && std::is_same_v<active_t,typename P2_t::active>){
-		return and_p<P1_t,P2_t>{std::forward<P1_t>(p1),std::forward<P2_t>(p2)};
-	} else if constexpr(std::is_same_v<active_t,typename P1_t::active> && !std::is_same_v<active_t,typename P2_t::active>){
-		using forget_t = forget<P2_t>;
-		return and_p<P1_t, forget_t>(std::forward<P1_t>(p1),forget_t{std::forward<P2_t>(p2)});
-	} else if constexpr(!std::is_same_v<active_t,typename P1_t::active> && std::is_same_v<active_t,typename P2_t::active>){
-		using forget_t = forget<P1_t>;
-		return and_p<forget_t, P2_t>(forget_t{std::forward<P1_t>(p1)},std::forward<P2_t>(p2));
-	} else {
-		using forget_t1 = forget<P1_t>;
-		using forget_t2 = forget<P2_t>;
-		return and_p<forget_t1, forget_t2>(forget_t1{std::forward<P1_t>(p1)},forget_t2{std::forward<P2_t>(p2)});
-	}
+	return and_p<P1_t,P2_t>{std::forward<P1_t>(p1),std::forward<P2_t>(p2)};
 }
 template<parser P, typename F>
 auto operator*(P&& p, F&& unparser) {
@@ -291,13 +357,13 @@ auto operator*(P&& p, F&& unparser) {
 		using ret_args = 
 			typename append_list<TLIST<F_TYPE,P_t,typename invoke_info::ret>,remaining_types>::type;//TODO reorder return type to back
 		using ret_type = 
-			typename apply_list<nr_parser,ret_args>::type;
+			typename apply_list<consume_p,ret_args>::type;
 		return ret_type(F_TYPE{std::forward<F>(unparser)},std::forward<P>(p));
 	}else{
 		using ret_args = 
 			typename append_list<TLIST<F_TYPE,P_t>,remaining_types>::type;
 		using ret_type = 
-			typename apply_list<nr_parser,ret_args>::type;
+			typename apply_list<consume_p,ret_args>::type;
 		return ret_type(F_TYPE{std::forward<F>(unparser)},std::forward<P>(p));
 	}
 }
@@ -312,7 +378,11 @@ struct fr_parser_t {
 	F_TYPE fds;
 	fr_parser_t(F_TYPE&& fds) : fds(std::forward<F_TYPE>(fds)) {};
 	bool _parse(auto& ctx, ARGS&...args){
-		return fds(ctx,args...);
+		if constexpr (requires(decltype(ctx) ctx, decltype(*this) self, ARGS...args){fds(ctx,self,args...);}){
+			return fds(ctx,*this,args...);
+		}else{
+			return fds(ctx,args...);
+		}
 	}
 };
 
@@ -320,7 +390,7 @@ template<typename ... ARGS>
 auto make_rpo(auto&& f){
 	using F_TYPE = std::decay_t<decltype(f)>;
 	using parser = fr_parser_t<F_TYPE,ARGS...>;
-	return nr_parser<VOID,parser,ARGS...>(VOID{},parser{std::forward<F_TYPE>(f)});
+	return parser{std::forward<F_TYPE>(f)};
 }
 template<context_c context_t, typename...UNPARSED>
 struct rpo {
@@ -367,4 +437,57 @@ auto erase(parser auto&& parser){
 		typename apply_list<rpo,typename prev_type::UNPARSED_LIST>::type;
 	ret_type ret = parser;
 	return ret;
+}
+
+template<typename ctx, typename...RET>
+struct polymorphic_rpo_base {
+	using UNPARSED_LIST = TLIST<RET...>;
+	using active = active_f;
+
+	virtual bool _parse(ctx& ,RET&...) = 0;
+};
+template<parser parser>
+class ref_p {
+public:
+	using active = typename parser::active;
+	using UNPARSED_LIST = typename parser::UNPARSED_LIST;
+
+	parser* p;
+	ref_p() = default;
+	ref_p(parser& op) : p(&op) {}
+
+	void _undo(auto& ctx) {
+		undo(ctx,*p);
+	}
+	bool _parse(auto& ctx, auto&...args) {
+		return parse(ctx,*p,args...);
+	}
+	bool dbg_inline(){
+		return true;
+	}
+};
+
+parser auto ref(auto* p){
+	using inner = std::decay_t<decltype(p)>;
+	return ref_p<std::remove_pointer_t<inner>>{*p};
+}
+parser auto ref(auto& p){
+	using inner = std::decay_t<decltype(p)>;
+	return ref_p<inner>{p};
+}
+template<typename ctx, typename...RET>
+using polymorphic_rpo = ref_p<polymorphic_rpo_base<ctx,RET...>>;
+
+template<typename P, typename ctx, typename...RET>
+struct polymorphic_rpo_derived : public polymorphic_rpo_base<ctx,RET...> {
+	[[no_unique_address]] P p;
+	polymorphic_rpo_derived(auto&& p) : p(std::forward<P>(p)) {}
+	bool _parse(ctx& c, RET&...args) override {
+		return parse(c,p,args...);
+	}
+};
+template<typename ctx, typename...RET>
+parser auto make_poly(auto&& parser){
+	using P_t = std::decay_t<decltype(parser)>;
+	return polymorphic_rpo_derived<P_t,ctx,RET...>{std::forward<P_t>(parser)};
 }

@@ -5,6 +5,43 @@
 #include <regex>
 
 
+struct ref_text_p {
+	using active = active_f;
+	using UNPARSED_LIST = TLIST<EOL>;
+
+	const std::string_view& sv;
+	inline ref_text_p(const std::string_view& sv) : sv(sv) {}
+	
+	inline bool _parse(basic_context_c auto& ctx) {
+		for(char c : sv){
+			if(ctx.done())return false;
+			char i = ctx.token();
+			if(i != c)return false;
+			ctx.advance();
+		}
+		return true;
+	}
+};
+template<typename F> requires std::is_invocable_r_v<std::string_view,F>
+struct fast_text_p {
+	using active = active_f;
+	using UNPARSED_LIST = TLIST<EOL>;
+
+	[[no_unique_address]] F f;
+	inline fast_text_p(auto&& f) : f(std::forward<F>(f)) {}
+	
+	inline bool _parse(basic_context_c auto& ctx) {
+		std::string_view sv = f();
+		for(char c : sv){
+			if(ctx.done())return false;
+			char i = ctx.token();
+			if(i != c)return false;
+			ctx.advance();
+		}
+		return true;
+	}
+};
+
 struct text_p {
 	using active = active_f;
 	using UNPARSED_LIST = TLIST<EOL>;
@@ -22,14 +59,13 @@ struct text_p {
 		return true;
 	}
 };
+auto fast_text(auto&& f){
+	using F_TYPE = std::decay_t<decltype(f)>;
+	return fast_text_p<F_TYPE>{std::forward<F_TYPE>(f)};
+}
+#define EZPZ_TEXT(lit) fast_text([](){return lit;})
 inline parser auto text(const std::string_view& sv) {
-	return make_rpo([&](auto& ctx){
-		for(size_t i = 0; i < sv.size(); ++i){
-			if(sv[i] != ctx.token())return false;
-			ctx.advance();
-		}
-		return true;
-	});
+	return ref_text_p{sv};
 }
 
 inline parser auto any(std::string_view rhs){
@@ -109,8 +145,6 @@ struct number_p{
 		if(ctx.token() == '-'){
 			negative = true;
 			ctx.advance();
-		}else if(ctx.token() == '+'){
-			ctx.advance();
 		}
 		if(ctx.done())return false;
 		ret = 0;
@@ -164,11 +198,10 @@ inline struct alpha_p {
 } alpha;
 inline struct single_p {
 	using active = active_f;
-	using UNPARSED_LIST = TLIST<char>;
+	using UNPARSED_LIST = TLIST<>;
 
-	bool _parse(auto& ctx, char& c){
+	bool _parse(auto& ctx){
 		if(ctx.done())return false;
-		c = ctx.token();
 		ctx.advance();
 		return true;
 	}
@@ -183,7 +216,7 @@ auto token(auto&& val){
 }
 
 inline auto regex(std::string_view pattern){
-	return make_rpo<std::string_view>([=](basic_context& ctx, std::string_view& output){
+	return make_rpo<std::string_view>([=](basic_context_c auto& ctx, std::string_view& output){
 		const std::string str{pattern};
 		auto [regex_iter,b] = ctx.regex_cache.try_emplace(str,str);
 		std::smatch match;
@@ -200,20 +233,3 @@ inline auto regex(std::string_view pattern){
 	});
 }
 
-
-/* auto operator|(std::string_view sv1, std::string_view sv2){ */
-/* 	return text_parser(sv1) | text_parser(sv2); */
-/* } */
-/* template<parser P> */
-/* auto capture(parser P&& p){ */
-/* 	return fr_parser<std::string_view>( */
-/* 			[p=std::forward<P>(p)](context& ctx, std::string_view& sv){ */
-/* 				auto start = ctx.pos; */
-/* 				auto ret = match(ctx,p); */
-/* 				if(ret){ */
-/* 					auto delta = ctx.pos-start; */
-/* 					sv = std::string_view{ctx.input.c_str()+start,delta}; */
-/* 				} */
-/* 				return ret; */
-/* 			}); */
-/* } */

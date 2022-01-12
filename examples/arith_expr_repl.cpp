@@ -1,22 +1,23 @@
 #include "ezpz/ezpz.hpp"
+#include "ezpz/macros.hpp"
 #include <cmath>
 #include <iostream>
 
 int main(){
 
 	using num_t = float;
+	using ctx_t = basic_context;
 
 	auto op_maker_la = [](std::string_view op, auto upper, auto&& operation){
-		return make_rpo<num_t>([op,operation,upper](basic_context& ctx, num_t& num) mutable {
-			return parse(ctx,upper*assign(num)+ws+(any(op+ws+ref(upper)*
-					[&](num_t val){
-						std::cout << num << " " << op << " " << val << " = " << operation(num,val) << std::endl;
-						num = operation(num,val);
-					}
-			)));
+		return make_rpo<num_t>([op,operation,upper](ctx_t& ctx, num_t& ret) mutable {
+			auto aggregate = [&](num_t next){
+				std::cout << ret << " " << op << " " << next << " = " << operation(ret,next) << std::endl;
+				ret = operation(ret,next);
+			};
+			return parse(ctx,!upper+ws+(any(op+ws+ref(upper)*aggregate)),ret);
 		});
 	};
-	basic_rpo<num_t> base;
+	polymorphic_rpo<ctx_t,num_t> base;
 	auto p0 = op_maker_la("^",ref(base),[](auto a, auto b){
 		return std::pow(a,b);
 	});
@@ -34,30 +35,34 @@ int main(){
 	auto p12 = op_maker_la("!=",p11,std::not_equal_to<num_t>());
 
 	auto& last = p12;
+	auto expr = ws+!ref(last)+ws;
+
 	auto ident = capture("%" | plus(alpha));
-	std::cout << sizeof(p12) << std::endl;
 	std::unordered_map<std::string,num_t> store;
 	auto function = 
-		  ( "sin("+!(ref(last)*[](auto& val){return std::sin(val);})+")" )
-		| ( "cos("+!(ref(last)*[](auto& val){return std::cos(val);})+")" )
-		| ( "abs("+!(ref(last)*[](auto& val){return std::abs(val);})+")" )
-		| ( "sqrt("+!(ref(last)*[](auto& val){return (num_t)(std::sqrt(val));})+")" )
+		  ( EZPZ_STRING("sin(")+!(ref(expr)*[](auto& val){return std::sin(val);})+EZPZ_STRING(")") )
+		| ( EZPZ_STRING("cos(")+!(ref(expr)*[](auto& val){return std::cos(val);})+EZPZ_STRING(")") )
+		| ( EZPZ_STRING("abs(")+!(ref(expr)*[](auto& val){return std::abs(val);})+EZPZ_STRING(")") )
+		| ( EZPZ_STRING("sqrt(")+!(ref(expr)*[](auto& val){return (num_t)(std::sqrt(val));})+EZPZ_STRING(")") )
 		;
-	std::cout << sizeof(function) << std::endl;
-	base = 
+	auto base_impl = make_poly<ctx_t,num_t>(
 		  ("-"+ws+!(ref(base)*std::negate<num_t>()))
-		| ("("+ws+!ref(last)+ws+")")
+		| ("("+ws+!ref(expr)+ws+")")
 		| !decimal<num_t>
-		| !("pi"_p*ret<num_t>(std::numbers::pi))
+		| !("pi"_p*ret(std::numbers::pi_v<num_t>))
+		| !("e"_p*ret(std::numbers::e_v<num_t>))
 		| function
+		| !("true"_p * ret(num_t(1)))
+		| !("false"_p * ret(num_t(0)))
 		| !(ident*[&](auto id){
 			auto ret =  store[std::string{id}];
 			std::cout << "loading " << id << " with " << ret << std::endl;
 			return ret;
-		});
-	auto expr = ws+!ref(last)+ws+eoi;
+		}))
+		;
+	base = base_impl;
 
-	auto assignment = (!ident + ws + ":=" + ws + !expr)*[&](auto id, auto val){
+	auto assignment = (!ident + ws + ":=" + ws + !expr + eoi)*[&](auto id, auto val){
 		std::cout << "storing " << id << " with " << val << std::endl;
 		store[std::string{id}] = val;
 	};
@@ -66,9 +71,9 @@ int main(){
 		std::string line;
 		std::getline(std::cin,line);
 		if(std::cin.eof())break;
-		basic_context ctx(line);
-		/* ctx.debug = true; */
-		parse(ctx,(assignment | (expr*[&](auto val){store["%"] = val; std::cout << val << std::endl;}) | print("error")));
+		ctx_t ctx(line);
+
+		parse(ctx,(assignment | ((!expr+eoi)*[&](auto val){store["%"] = val; std::cout << val << std::endl;}) | print("error")));
 	}
 
 }

@@ -1,4 +1,5 @@
 #include <type_traits>
+#include <tuple>
 #pragma once
 
 template<typename ... ARGS>
@@ -39,6 +40,24 @@ struct append_list<TLIST<EOL>,L2,ARGS...>{
 	using type = typename append_list_hlp<L2,ARGS...>::type; 
 };
 
+/* template<typename T1, typename T2> */
+/* struct append_list; */
+
+/* template<typename ...T1, typename ...T2> */ 
+/* requires (!std::is_same_v<TLIST<T1...>,TLIST<EOL>> && !std::is_same_v<TLIST<T2...>,TLIST<EOL>>) */
+/* struct append_list<TLIST<T1...>, TLIST<T2...>> { */
+/* 	using type = TLIST<T1...,T2...>; */
+/* }; */
+/* template<typename T> */ 
+/* requires (!std::is_same_v<T,TLIST<EOL>>) */
+/* struct append_list<T,TLIST<EOL>> { */
+/* 	using type = T; */
+/* }; */
+/* template<typename T> */
+/* struct append_list<TLIST<EOL>, T> { */
+/* 	using type = T; */
+/* }; */
+
 template<template<typename...> class T, typename L, typename...ARGS>
 struct apply_list { 
 	using type = typename apply_list<T,typename L::rest,ARGS...,typename L::type>::type;
@@ -49,7 +68,7 @@ struct apply_list<T,TLIST<EOL>,ARGS...> {
 };
 
 template<bool b, typename TRUE, typename FALSE>
-struct t_if_else {};
+struct t_if_else;
 
 template<typename TRUE, typename FALSE>
 struct t_if_else<true,TRUE,FALSE> {
@@ -188,22 +207,13 @@ template<typename ... ARGS>
 struct reverse_list<TLIST<EOL>,ARGS...> {
 	using type = TLIST<ARGS...>;
 };
-template<typename FIRST=void, typename ... ARGS>
+template<typename ... ARGS>
 struct hold_normal {
-	FIRST first;
-	hold_normal<ARGS...> rest;
+	std::tuple<ARGS...> data;
 
-	template<typename F, typename ... OARGS>
-	auto apply(F&& f, OARGS&&...oargs){
-		return rest.apply(f,oargs...,first);
-	}
-};
-template<>
-struct hold_normal<void>{
-	template<typename F, typename ...OARGS>
-	auto apply(F&&f, OARGS&&...oargs){
-		/* print_types<F,OARGS...> fds; */
-		return f(oargs...);
+	template<typename F>
+	auto apply(F&& f){
+		return std::apply(f,data);
 	}
 };
 template<typename FIRST=void, typename ... ARGS>

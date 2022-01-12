@@ -26,30 +26,6 @@ inline struct eoi_p {
 	}
 } eoi;
 
-template<parser parser>
-class ref_p {
-public:
-	using active = typename parser::active;
-	using UNPARSED_LIST = typename parser::UNPARSED_LIST;
-
-	parser& p;
-	ref_p(parser& op) : p(op) {}
-
-	void _undo(auto& ctx) {
-		undo(ctx,p);
-	}
-	bool _parse(auto& ctx, auto&...args) {
-		return parse(ctx,p,args...);
-	}
-	bool dbg_inline(){
-		return true;
-	}
-};
-
-parser auto ref(auto& p){
-	using inner = std::decay_t<decltype(p)>;
-	return ref_p<inner>{p};
-}
 
 template<parser P>
 struct capture_p {

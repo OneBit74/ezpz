@@ -61,6 +61,12 @@ public:
 	inline void notify_leave(auto&, bool) {}
 };
 
+bool is_dbg_inline(auto&p){
+	if constexpr( requires(decltype(p) p){p.dbg_inline();} ){
+		return p.dbg_inline();
+	}
+	return false;
+}
 class basic_context : public min_context {
 public:
 	using min_context::min_context;
@@ -69,12 +75,6 @@ public:
 	std::unordered_map<std::string,std::regex> regex_cache;
 
 
-	bool is_dbg_inline(auto&p){
-		if constexpr( requires(decltype(p) p){p.dbg_inline();} ){
-			return p.dbg_inline();
-		}
-		return false;
-	}
 	inline void notify_leave(auto& parser, bool success, int prev_pos) {
 		if(!debug || is_dbg_inline(parser)){
 			return;
@@ -122,4 +122,36 @@ public:
 	inline void indent() const {
 		for(size_t i = 0; i < depth; ++i)std::cout << '\t';
 	}
+};
+
+#include <ranges>
+template<std::ranges::forward_range R>
+struct forward_range_context {
+	using iterator = std::ranges::iterator_t<R>;
+	R& range;
+
+	iterator start;
+	iterator end;
+	iterator cur;
+
+	forward_range_context(R& range) : range(range), start(std::begin(range)), end(std::end(range)), cur(std::begin(range)) {}
+
+	auto token(){
+		return *cur;
+	}
+	iterator getPosition(){
+		return cur;
+	}
+	void setPosition(iterator pos){
+		cur = pos;
+	}
+
+	
+	void notify_enter(auto&) {}
+	void notify_leave(auto&, bool) {}
+
+	bool done() const {return cur == end;}
+	void advance() {
+		++cur;
+	};
 };

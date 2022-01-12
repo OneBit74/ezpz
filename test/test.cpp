@@ -1,8 +1,17 @@
 #include "ezpz/ezpz.hpp"
+#include "ezpz/macros.hpp"
 
 #include <gtest/gtest.h>
 #include <rapidcheck/gtest.h>
 
+TEST(context,range_context){
+	std::vector<int> range = {1,2,3,3,2,1};
+	forward_range_context ctx(range);
+	auto v1 = EZPZ_SINGLE_TOKEN((token == 1));
+	auto v2 = EZPZ_SINGLE_TOKEN((token == 2));
+	auto v3 = EZPZ_SINGLE_TOKEN((token == 3));
+	EXPECT_TRUE(parse(ctx,v1+v2+v3+v3+v2+v1));
+}
 TEST(ezpz,make_rpo){
 	basic_context ctx;
 	auto p1 = make_rpo([](auto& ctx){
@@ -13,6 +22,24 @@ TEST(ezpz,make_rpo){
 		return parse(ctx,decimal<int>,ret);
 	});
 	EXPECT_TRUE(parse("123",p2+eoi));
+}
+TEST(ezpz,or_undo_lhs){
+	basic_context ctx("aab");;
+	EXPECT_TRUE(parse(ctx,"aaa"_p | "aab"));
+}
+TEST(ezpz,make_rpo_recursive){
+	basic_context ctx("123 456 789");;
+	auto number_list = make_rpo<std::vector<int>>([](auto& ctx, auto& self, auto& ret){
+		return parse(ctx,(!decimal<int>+optional(ws+!::ref(self)))*
+		[&](int num, std::optional<std::vector<int>> list){
+			if(list)ret = std::move(*list);
+			ret.insert(std::begin(ret),num);
+		});
+	});
+	std::vector<int> result;
+	std::vector<int> expected = {123,456,789};
+	EXPECT_TRUE(parse(ctx,number_list*assign(result)+eoi));
+	EXPECT_EQ(result,expected);
 }
 TEST(context,done){
 	basic_context ctx;
@@ -156,6 +183,15 @@ TEST(helper,fail){
 	EXPECT_FALSE(parse("8392842",fail));
 	EXPECT_FALSE(parse(":)",fail));
 	EXPECT_FALSE(parse("",fail));
+}
+TEST(helper,poly_recursion){
+	polymorphic_rpo<basic_context> parser;
+	auto p1 = "a"+optional(ref(parser));
+	auto p2 = make_poly<basic_context>(p1);
+	parser = p2;
+	EXPECT_TRUE(parse("aaaaaaaaaaaaaaaa",ref(parser)+eoi));
+	EXPECT_TRUE(parse("aaa",ref(parser)+eoi));
+	EXPECT_FALSE(parse("",ref(parser)+eoi));
 }
 TEST(helper,rpo_recursion){
 	basic_rpo<> parser;
