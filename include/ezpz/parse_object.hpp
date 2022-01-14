@@ -39,9 +39,9 @@ void undo(context_c auto& ctx, parser auto& p){
 	}
 }
 
-bool parse(std::string s, parser auto&& p){
+bool parse(std::string s, parser auto&& p, auto&...args){
 	basic_context ctx(std::move(s));
-	return parse(ctx,std::forward<std::decay_t<decltype(p)>>(p));
+	return parse(ctx,std::forward<std::decay_t<decltype(p)>>(p),args...);
 }
 template<context_c context_t, typename P, typename...ARGS> 
 requires parser<std::decay_t<P>> 

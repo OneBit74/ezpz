@@ -8,33 +8,34 @@ parser auto plus(T&& rhs) {
 	using TT = std::decay_t<T>;
 	return make_rpo([r=std::forward<TT>(rhs)](auto& ctx) mutable {
 		if(!parse(ctx,r))return false;
-		while(parse_or_undo(ctx,r) && !ctx.done()){}
+		while(parse(ctx,r)){}
 		return true;
 	});
 }
 
-template<parser P, typename RET, typename F>
+template<parser P, std::invocable VAL_F, typename AGG_F>
 struct agg_any_p {
+	using RET = std::invoke_result_t<VAL_F>;
 	using UNPARSED_LIST = TLIST<RET>;
 	using active = active_t;
 	
-	P p;
-	RET v;
-	F f;
+	[[no_unique_address]] P p;
+	[[no_unique_address]] VAL_F v;
+	[[no_unique_address]] AGG_F f;
 
 	agg_any_p(auto&& p, auto&& v, auto&& f) :
 		p(std::forward<P>(p)),
-		v(std::forward<RET>(v)),
-		f(std::forward<F>(f))
+		v(std::forward<VAL_F>(v)),
+		f(std::forward<AGG_F>(f))
 	{}
 
 	bool _parse(auto& ctx, RET& ret){
-		ret = v;
+		ret = v();
 		using hold_t = typename apply_list<hold_normal,typename P::UNPARSED_LIST>::type;
 		while(!ctx.done()){
 			hold_t hold;
 			bool success = hold.apply([&](auto&...args){
-				return parse_or_undo(ctx,p,args...);
+				return parse(ctx,p,args...);
 			});
 			if(!success)break;
 
@@ -42,7 +43,7 @@ struct agg_any_p {
 				using constraint = typename apply_list<
 					std::is_invocable_r,
 					typename append_list<
-						TLIST<RET,F,RET>,
+						TLIST<RET,AGG_F,RET>,
 						typename P::UNPARSED_LIST>::type
 				>::type;
 				if constexpr (constraint::value){
@@ -62,16 +63,32 @@ struct any_p {
 	using UNPARSED_LIST = TLIST<EOL>;
 	using active = active_f;
 
-	T p;
+	[[no_unique_address]] T p;
 	any_p(auto&& p) : p(std::forward<T>(p)) {}
 	bool _parse(auto& ctx){
-		while(parse_or_undo(ctx,p) && !ctx.done()){}
+		while(parse(ctx,p)){}
 		return true;
 	}
 
-	template<typename V, typename F> 
-	auto reduce(V base, F comb){
-		return agg_any_p<T,V,F>{p,base,comb};
+	template<typename VAL_F, typename AGG_F> 
+	auto reduce(VAL_F base, AGG_F comb) {
+		using VAL_F_t = std::decay_t<VAL_F>;
+		using AGG_F_t = std::decay_t<AGG_F>;
+		if constexpr(std::invocable<VAL_F_t>){
+			return agg_any_p<T,VAL_F_t,AGG_F_t>{
+				std::forward<T>(p),
+				std::forward<VAL_F_t>(base),
+				std::forward<AGG_F_t>(comb)};
+		}else{
+			auto hold_f = [base=std::forward<VAL_F_t>(base)](){
+				return base;
+			};
+			using hold_f_t = decltype(hold_f);
+			return agg_any_p<T,hold_f_t,AGG_F_t>{
+				std::forward<T>(p),
+				std::move(hold_f),
+				std::forward<AGG_F_t>(comb)};
+		}
 	}
 };
 template<parser T>

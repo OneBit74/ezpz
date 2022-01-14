@@ -63,7 +63,6 @@ auto fast_text(auto&& f){
 	using F_TYPE = std::decay_t<decltype(f)>;
 	return fast_text_p<F_TYPE>{std::forward<F_TYPE>(f)};
 }
-#define EZPZ_TEXT(lit) fast_text([](){return lit;})
 inline parser auto text(const std::string_view& sv) {
 	return ref_text_p{sv};
 }
@@ -104,7 +103,8 @@ inline struct ws_p {
 			case ' ':
 			case '\t':
 			case '\n':
-				++ctx.pos;
+			case '\r':
+				ctx.advance();
 				break;
 			default:
 				return true;
@@ -196,16 +196,33 @@ inline struct alpha_p {
 		return ret;
 	}
 } alpha;
-inline struct single_p {
+
+template<typename F>
+struct accept_if_p {
 	using active = active_f;
 	using UNPARSED_LIST = TLIST<>;
 
+	[[no_unique_address]] F f;
+
+	accept_if_p(auto&& f) : f(std::forward<F>(f)) {}
+
 	bool _parse(auto& ctx){
 		if(ctx.done())return false;
-		ctx.advance();
-		return true;
+		if(f(ctx.token())){
+			ctx.advance();
+			return true;
+		}else{
+			return false;
+		}
 	}
-} single;
+};
+
+template<typename F>
+auto accept_if(F&& f){
+	using F_t = std::decay_t<F>;
+	return accept_if_p<F_t>(std::forward<F_t>(f));
+}
+inline auto single = accept_if([](const auto&){return true;});
 
 auto token(auto&& val){
 	return make_rpo([=](auto& ctx){

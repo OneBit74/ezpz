@@ -12,6 +12,28 @@ TEST(context,range_context){
 	auto v3 = EZPZ_SINGLE_TOKEN((token == 3));
 	EXPECT_TRUE(parse(ctx,v1+v2+v3+v3+v2+v1));
 }
+TEST(quantifiers,reduce){
+	std::vector<char> result;
+	EXPECT_TRUE(parse("1234",any(capture(single)).reduce(
+			[](){return std::vector<char>{};},
+			[](auto& vec, auto sv){vec.push_back(sv[0]);})
+			, result
+		));
+	ASSERT_TRUE(result.size() == 4);
+	EXPECT_TRUE(result[0] == '1');
+	EXPECT_TRUE(result[1] == '2');
+	EXPECT_TRUE(result[2] == '3');
+	EXPECT_TRUE(result[3] == '4');
+}
+TEST(matcher,accept_if){
+	std::vector<int> range = {1,2,3,4,5,6};
+	forward_range_context ctx(range);
+
+	auto even = accept_if([](int val){return (val+1)%2;});
+	auto odd = accept_if([](int val){return val%2;});
+
+	EXPECT_TRUE(parse(ctx,odd+even+odd+even+odd+even+eoi));
+}
 TEST(ezpz,make_rpo){
 	basic_context ctx;
 	auto p1 = make_rpo([](auto& ctx){
