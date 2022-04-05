@@ -20,7 +20,7 @@ include_directories(${rapidcheck_SOURCE_DIR}/extras/gtest/include)
 
 #"-fconcepts-diagnostics-depth=20" "-fopenmp"
 add_compile_options(
-	"-Wall" "-Wpedantic" "-Wno-unused-local-typedefs" "-Wextra" "-fexceptions"
+	"-Wall" "-Wpedantic" "-Wno-unused-local-typedefs" "-Wextra" "-fexceptions" "-ftemplate-backtrace-limit=0"
 	"$<$<CONFIG:DEBUG>:-O0;-g3;-ggdb;-ftrapv;-fbounds-check;-fsanitize=undefined>"
 	"$<$<CONFIG:RELEASE>:-O3>"
 	)
@@ -35,6 +35,7 @@ add_executable(expr1 examples/expr_v1.cpp)
 add_executable(expr2 examples/arith_expr_repl.cpp)
 
 add_executable(xml examples/xml.cpp)
+add_executable(lex examples/lexical.cpp)
 add_executable(json examples/json.cpp)
 
 find_package(GTest REQUIRED)

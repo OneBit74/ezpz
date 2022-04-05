@@ -19,11 +19,39 @@ TEST(quantifiers,reduce){
 			[](auto& vec, auto sv){vec.push_back(sv[0]);})
 			, result
 		));
-	ASSERT_TRUE(result.size() == 4);
-	EXPECT_TRUE(result[0] == '1');
-	EXPECT_TRUE(result[1] == '2');
-	EXPECT_TRUE(result[2] == '3');
-	EXPECT_TRUE(result[3] == '4');
+	ASSERT_EQ(result.size(), 4);
+	EXPECT_EQ(result[0], '1');
+	EXPECT_EQ(result[1], '2');
+	EXPECT_EQ(result[2], '3');
+	EXPECT_EQ(result[3], '4');
+}
+TEST(quantifiers,reduce2){
+	std::vector<char> result;
+	EXPECT_TRUE(parse("1234",reduce(min<2>(capture(single)),
+			[](){return std::vector<char>{};},
+			[](auto& vec, auto sv){vec.push_back(sv[0]);})
+			, result
+		));
+	ASSERT_EQ(result.size(), 4);
+	EXPECT_EQ(result[0], '1');
+	EXPECT_EQ(result[1], '2');
+	EXPECT_EQ(result[2], '3');
+	EXPECT_EQ(result[3], '4');
+}
+TEST(helper,must){
+	EXPECT_TRUE(parse("abc", must("abc"_p)));
+	EXPECT_THROW(parse("def", must("abc"_p)), parse_error);
+}
+TEST(helper,recover){
+	auto p = recover("bbb"_p,"aaa"_p);
+	EXPECT_TRUE(parse("aaa", p));
+	EXPECT_TRUE(parse("bbb", p));
+	EXPECT_FALSE(parse("ccc", p));
+
+	int val = 0;
+	auto p2 = recover(decimal<int>,"a"+!decimal<int>)*assign(val);
+	EXPECT_TRUE(parse("a256",p2));
+	EXPECT_EQ(val,256);
 }
 TEST(matcher,accept_if){
 	std::vector<int> range = {1,2,3,4,5,6};
@@ -101,11 +129,15 @@ TEST(consumer,insert){
 
 TEST(consumer,ret){
 	int val = 0;
-	parse("   ",ws*ret(2)*assign(val));
+	parse("   ",ws*retd(2)*assign(val));
+	EXPECT_EQ(val,2);
+
+	val = 0;
+	parse("   ",ws*ret<2>*assign(val));
 	EXPECT_EQ(val,2);
 
 	std::string_view text;
-	parse("   ",ws*ret<std::string_view>("hey")*assign(text));
+	parse("   ",ws*retd<std::string_view>("hey")*assign(text));
 	EXPECT_EQ(text,"hey");
 }
 TEST(quantifiers,any){
@@ -163,9 +195,25 @@ TEST(quantifiers,optional){
 		EXPECT_TRUE(ctx.done());
 	}
 }
-TEST(quantifiers,not){
+TEST(quantifiers,peek){
 	EXPECT_TRUE(parse("a",notf("b"_p)));
 	EXPECT_FALSE(parse("a",notf("a"_p)));
+	EXPECT_TRUE(parse("ba",any(notf("a"_p)+single)+"a"));
+}
+TEST(quantifiers,not){
+	EXPECT_TRUE(parse("a",peek("a"_p)));
+	EXPECT_FALSE(parse("b",peek("a"_p)));
+	basic_context ctx("a");
+	EXPECT_TRUE(parse(ctx,peek("a"_p)));
+	EXPECT_TRUE(parse(ctx,peek("a"_p)));
+	EXPECT_TRUE(parse(ctx,peek("a"_p)+peek("a"_p)));
+	EXPECT_FALSE(parse(ctx,"a"_p+peek("a"_p)));
+}
+TEST(core,and){
+	EXPECT_TRUE(parse("ab","a"_p+"b"_p));
+	int val = 0;
+	parse("",((no_parser*ret<1>)+!(no_parser*ret<2>))*assign(val));
+	EXPECT_EQ(val,2);
 }
 TEST(core,parse_or_undo){
 	basic_context ctx("123 wasd");
@@ -268,7 +316,8 @@ RC_GTEST_PROP(ezpz,simple_list_parser,(std::vector<int> vec)){
 		oss << x << ", ";
 	}
 	std::vector<int> unparsed;
-	basic_context ctx(oss.str());
+	std::string data = oss.str();
+	basic_context ctx(data);
 	parse(ctx,any(decimal<int> * insert(unparsed) + ", "));
 
 	RC_ASSERT(vec == unparsed);
@@ -276,7 +325,8 @@ RC_GTEST_PROP(ezpz,simple_list_parser,(std::vector<int> vec)){
 }
 RC_GTEST_PROP(ezpz,integer_decimal_parse_identity,(long long val)){
 	basic_context ctx;
-	ctx.input = std::to_string(val);
+	auto data = std::to_string(val); 
+	ctx.input = data;
 	long long parsed = -1;
 	RC_ASSERT(parse(ctx,decimal<long long> * assign(parsed)));
 	RC_ASSERT(val == parsed);
@@ -287,7 +337,8 @@ RC_GTEST_PROP(ezpz,floating_decimal_parse_identity,(double val)){
 	out.precision(32);
     out << std::fixed << val;
 	basic_context ctx;
-    ctx.input = out.str();
+	auto data = out.str();
+    ctx.input = data;
 	double parsed = -1;
 	RC_ASSERT(parse(ctx,decimal<double> * assign(parsed)));
 	if(val != 0){

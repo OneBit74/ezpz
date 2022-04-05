@@ -49,11 +49,11 @@ int main(){
 		  ("-"+ws+!(ref(base)*std::negate<num_t>()))
 		| ("("+ws+!ref(expr)+ws+")")
 		| !decimal<num_t>
-		| !("pi"_p*ret(std::numbers::pi_v<num_t>))
-		| !("e"_p*ret(std::numbers::e_v<num_t>))
+		| !("pi"_p*ret<std::numbers::pi_v<num_t>>)
+		| !("e"_p*ret<std::numbers::e_v<num_t>>)
 		| function
-		| !("true"_p * ret(num_t(1)))
-		| !("false"_p * ret(num_t(0)))
+		| !("true"_p * ret<num_t(1)>)
+		| !("false"_p * ret<num_t(0)>)
 		| !(ident*[&](auto id){
 			auto ret =  store[std::string{id}];
 			std::cout << "loading " << id << " with " << ret << std::endl;

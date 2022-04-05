@@ -38,13 +38,14 @@ concept basic_context_c = context_c<T> && requires(T t){
 	} -> std::same_as<char>;
 };
 
+#include <string_view>
 class min_context {
 public:
-	std::string input;
+	std::string_view input;
 	size_t pos = 0;
 
 	min_context() = default;
-	inline min_context(std::string str) : input(std::move(str)) {}
+	inline min_context(std::string_view str) : input(std::move(str)) {}
 
 	inline char token() const {assert(!done());return input[pos];}
 	inline bool done() const {return pos == input.size();}
@@ -60,6 +61,26 @@ public:
 	inline void notify_enter(auto&) {}
 	inline void notify_leave(auto&, bool) {}
 };
+void print_special_chars(std::string_view sv){
+	for(char c : sv){
+		switch(c){
+			case '"':
+				std::cout << "\\\"";
+				break;
+			case '\t':
+				std::cout << "\\t";
+				break;
+			case '\r':
+				std::cout << "\\r";
+				break;
+			case '\n':
+				std::cout << "\\n";
+				break;
+			default:
+				std::cout << c;
+		}
+	}
+}
 
 bool is_dbg_inline(auto&p){
 	if constexpr( requires(decltype(p) p){p.dbg_inline();} ){
@@ -88,8 +109,9 @@ public:
 			std::cout << "accepted ";
 		}
 		std::cout 
-			<< '\"' 
-			<< std::string_view{input.begin()+prev_pos,input.begin()+pos} 
+			<< '\"';
+		print_special_chars(std::string_view{input.begin()+prev_pos,input.begin()+pos});
+		std::cout 
 			<< '\"'
 			<< std::endl;
 	}
@@ -105,7 +127,7 @@ public:
 		auto start_pos = std::max(0,int(pos)-lo);
 		auto end_pos = std::min(input.size(),pos+ro);
 		std::cout << '\"';
-		std::cout << std::string_view{input.begin()+start_pos, input.begin()+end_pos};
+		print_special_chars(std::string_view{input.begin()+start_pos, input.begin()+end_pos});
 		std::cout << '\"';
 		std::cout << " " << type_name<decltype(parser)>();
 		std::cout << std::endl;

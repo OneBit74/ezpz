@@ -10,6 +10,9 @@ struct [[deprecated]] print_vals;
 
 struct active_t;
 struct active_f;
+struct always_true;
+struct always_false;
+
 
 struct EOL {};
 template<typename FIRST=EOL, typename ... REST>
@@ -21,6 +24,20 @@ template<>
 struct TLIST<EOL> : EOL {
 	using type = EOL;
 	using rest = EOL;
+};
+
+template<class T>
+concept has_prop_tag = requires(){
+	typename T::ezpz_prop;
+};
+
+template<typename T>
+struct get_prop_tag {
+	using type = TLIST<>;
+};
+template<typename T> requires has_prop_tag<T>
+struct get_prop_tag<T> {
+	using type = T::ezpz_prop;
 };
 
 template<typename L, typename...ARGS>

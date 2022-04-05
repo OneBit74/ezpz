@@ -117,6 +117,17 @@ struct and_p {
 	>::type;
 	using UNPARSED_LIST = typename append_list<L_ARGS,R_ARGS>::type;
 	using active = active_t;
+	using ezpz_prop = t_if_else<
+		contains<typename get_prop_tag<LHS>::type, always_true>::value
+		&& contains<typename get_prop_tag<RHS>::type, always_true>::value,
+		TLIST<always_true>,
+		typename t_if_else<
+			contains<typename get_prop_tag<LHS>::type, always_false>::value
+			|| contains<typename get_prop_tag<RHS>::type, always_false>::value,
+			TLIST<always_false>,
+			TLIST<>
+		>::type
+	>::type;
 
 	[[no_unique_address]] dont_store_empty<LHS> lhs;
 	[[no_unique_address]] dont_store_empty<RHS> rhs;
@@ -139,14 +150,14 @@ struct and_p {
 		if constexpr (should_forget<LHS>){
 			ret = parse(ctx,lhs.get());
 		}else{
-			using front_t = typename instantiate_list<takefront_and_call, typename get_ref_list<typename LHS::UNPARSED_LIST>::type>::type;
+			using front_t = typename instantiate_list<takefront_and_call, typename get_ref_list<L_ARGS>::type>::type;
 			ret = front_t::call(cb_lhs,args...);
 		}
 		if(!ret)return false;
 		if constexpr (should_forget<RHS>){
 			ret = parse(ctx,rhs.get());
 		} else {
-			using back_t = typename instantiate_list<takeback_and_call, typename get_ref_list<typename LHS::UNPARSED_LIST>::type>::type;
+			using back_t = typename instantiate_list<takeback_and_call, typename get_ref_list<L_ARGS>::type>::type;
 			ret = back_t::call(cb_rhs,args...);
 		}
 		return ret;
@@ -280,6 +291,11 @@ struct or_p {
 		typename P1::UNPARSED_LIST,
 		typename P2::UNPARSED_LIST>::type;
 	using active = active_t;
+	using ezpz_prop = t_if_else< 
+		contains<typename get_prop_tag<P2>::type,always_true>::value,
+		TLIST<always_true>,
+		TLIST<>
+	>::type;
 
 	[[no_unique_address]] dont_store_empty<P1> p1;
 	[[no_unique_address]] dont_store_empty<P2> p2;
@@ -336,6 +352,8 @@ parser auto operator|(P1&& p1, P2&& p2){
 	using P1_t = std::decay_t<P1>;
 	using P2_t = std::decay_t<P2>;
 
+	static_assert(!contains<typename get_prop_tag<P1_t>::type, always_true>::value, "[ezpz] [operator|] left alternative always accepts, right side is never entered");
+
 	return or_p<P1_t,P2_t>{std::forward<P1_t>(p1), std::forward<P2_t>(p2)};
 }
 template<parser P1, parser P2> 
@@ -352,20 +370,32 @@ auto operator*(P&& p, F&& unparser) {
 	static_assert(!std::is_same_v<invoke_args,VOID>,"unparser callback is not callable by any of the available values");
 	using remaining_types = 
 		typename pop_n<list_size<invoke_args>::value,typename P_t::UNPARSED_LIST>::type;
-	using F_TYPE = f_wrapper<typename std::decay_t<F>,typename invoke_info::ret,typename invoke_info::args>;
+	using F_t = std::decay_t<F>;
+	using F_TYPE = f_wrapper<F_t,typename invoke_info::ret,typename invoke_info::args>;
 	if constexpr (!std::is_same_v<typename invoke_info::ret,void> && !std::is_same_v<typename invoke_info::ret,VOID>){
 		using ret_args = 
 			typename append_list<TLIST<F_TYPE,P_t,typename invoke_info::ret>,remaining_types>::type;//TODO reorder return type to back
 		using ret_type = 
 			typename apply_list<consume_p,ret_args>::type;
-		return ret_type(F_TYPE{std::forward<F>(unparser)},std::forward<P>(p));
+		return ret_type(F_TYPE{std::forward<F_t>(unparser)},std::forward<P>(p));
 	}else{
 		using ret_args = 
 			typename append_list<TLIST<F_TYPE,P_t>,remaining_types>::type;
 		using ret_type = 
 			typename apply_list<consume_p,ret_args>::type;
-		return ret_type(F_TYPE{std::forward<F>(unparser)},std::forward<P>(p));
+		return ret_type(F_TYPE{std::forward<F_t>(unparser)},std::forward<P>(p));
 	}
+}
+inline struct no_parser_p {
+	using UNPARSED_LIST = TLIST<>;
+	using active = active_f;
+	constexpr bool _parse(const auto&){
+		return true;
+	}
+} no_parser;
+template<parser P, typename F>
+auto operator*(F&& unparser, P&& p) {
+	return no_parser*unparser+p;
 }
 static_assert(std::is_same_v<invoke_list<std::function<void(int&,int&)>,TLIST<int&,int&>>::args,TLIST<int&,int&>>);
 /* static_assert(std::is_same_v<invoke_list<std::function<void(int&&)>,TLIST<int>>::args,TLIST<int>>); */

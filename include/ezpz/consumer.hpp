@@ -63,7 +63,11 @@ inline auto print_all = [](auto&...args){
 	std::cout << '\n';
 };
 
+template<auto val>
+auto ret = [](){return val;};
+
+
 template<typename T>
-auto ret(T&& val){
+auto retd(T&& val){
 	return [=](){return val;};
 }

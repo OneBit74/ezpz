@@ -3,6 +3,7 @@
 #include "context.hpp"
 #include "quantifiers.hpp"
 #include <regex>
+#include <cctype>
 
 
 struct ref_text_p {
@@ -42,12 +43,30 @@ struct fast_text_p {
 	}
 };
 
+struct text_ci_p {
+	using active = active_f;
+	using UNPARSED_LIST = TLIST<EOL>;
+
+	std::string_view sv;
+	constexpr text_ci_p(std::string_view sv) : sv(sv) {}
+	
+	inline bool _parse(basic_context_c auto& ctx) {
+		for(char c : sv){
+			if(ctx.done())return false;
+			char i = std::tolower(ctx.token());
+			if(i != c)return false;
+			ctx.advance();
+		}
+		return true;
+	}
+};
+
 struct text_p {
 	using active = active_f;
 	using UNPARSED_LIST = TLIST<EOL>;
 
 	std::string_view sv;
-	inline text_p(std::string_view sv) : sv(sv) {}
+	constexpr text_p(std::string_view sv) : sv(sv) {}
 	
 	inline bool _parse(basic_context_c auto& ctx) {
 		for(char c : sv){
@@ -89,8 +108,29 @@ template<parser T>
 parser auto operator+(std::string_view sv, T&& rhs){
 	return text_p(sv) + std::forward<T>(rhs);
 }
-inline auto operator "" _p(const char* s, size_t len){
-	return text_p(std::string_view{s,len});
+template<const char* data, size_t size>
+struct text_pc {
+	using active = active_f;
+	using UNPARSED_LIST = TLIST<EOL>;
+	static constexpr const char* end = data+size;
+	inline bool _parse(basic_context_c auto& ctx) {
+		auto cur = data;
+		while(cur != end){
+			auto c = *cur;
+			if(ctx.done())return false;
+			char i = ctx.token();
+			if(i != c)return false;
+			ctx.advance();
+			++cur;
+		}
+		return true;
+	}
+};
+inline constexpr parser auto operator "" _cip(const char* data, size_t size){
+	return text_ci_p(std::string_view{data,size});
+}
+inline constexpr parser auto operator "" _p(const char* data, size_t size){
+	return text_p(std::string_view{data,size});
 }
 
 inline struct ws_p {
@@ -113,9 +153,10 @@ inline struct ws_p {
 		return true;
 	}
 } ws;
-inline parser auto digit = make_rpo([](basic_context_c auto& ctx){
+inline parser auto digit = make_rpo<int>([](basic_context_c auto& ctx, int& ret){
 	if(ctx.done())return false;
 	if(std::isdigit(ctx.token())){
+		ret = ctx.token();
 		++ctx.pos;
 		return true;
 	}
@@ -218,6 +259,12 @@ struct accept_if_p {
 };
 
 template<typename F>
+auto accept_if_equal(F&& f){
+	return accept_if([f=std::forward<std::decay_t<F>>(f)](const auto& token){
+		return token == f;
+	});
+}
+template<typename F>
 auto accept_if(F&& f){
 	using F_t = std::decay_t<F>;
 	return accept_if_p<F_t>(std::forward<F_t>(f));
@@ -236,9 +283,9 @@ inline auto regex(std::string_view pattern){
 	return make_rpo<std::string_view>([=](basic_context_c auto& ctx, std::string_view& output){
 		const std::string str{pattern};
 		auto [regex_iter,b] = ctx.regex_cache.try_emplace(str,str);
-		std::smatch match;
-		const auto& c_input = ctx.input;
-		std::regex_search(c_input.begin()+ctx.pos,c_input.end(),match,regex_iter->second,std::regex_constants::match_continuous);
+		std::match_results<std::string_view::const_iterator> match;
+		auto& c_input = ctx.input;
+		std::regex_search(c_input.data()+ctx.pos,c_input.data()+ctx.input.size(),match,regex_iter->second,std::regex_constants::match_continuous);
 		if(match.empty())return false;
 		if(match.position() != 0)return false;
 		output = std::string_view{
