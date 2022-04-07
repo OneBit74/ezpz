@@ -32,6 +32,8 @@ concept rparser = parser<P> && requires(){
 	/* typename std::decay_t<P>::active; */
 	/* typename std::enable_if_t<!std::same_as<typename std::decay_t<P>::UNPARSED_LIST, TLIST<EOL>>>; */
 };
+template<typename P, typename ... RET>
+concept RPO_c = parser<P> && std::same_as<typename P::UNPARSED_LIST,TLIST<RET...>>;
 
 void undo(context_c auto& ctx, parser auto& p){
 	if constexpr( requires(decltype(p) p, decltype(ctx) ctx){p._undo(ctx);} ) {

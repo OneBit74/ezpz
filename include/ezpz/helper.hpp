@@ -133,3 +133,13 @@ parser auto must(auto&& p1, auto&& err_msg){
 	using msg_t = std::decay_t<decltype(err_msg)>;
 	return must_p<P1_t, msg_t>(std::forward<P1_t>(p1),std::forward<msg_t>(err_msg));
 }
+
+
+template<typename T>
+auto cast = [](auto& val){
+	if constexpr (is_variant<std::decay_t<decltype(val)>>) {
+		return std::visit([](auto& inner){return static_cast<T>(inner);},val);
+	}else{
+		return static_cast<T>(val);
+	}
+};

@@ -216,12 +216,13 @@ struct inline_tuple {
 	using type = 
 		typename t_if_else<
 			list_size<L>::value == 1,
-			typename L::type,
-			typename apply_list<std::tuple,L>::type>::type;
+			L,
+			TLIST< typename apply_list<std::tuple,L>::type>
+	>::type;
 };
 template<typename T>
 struct inline_variant {
-	using type = TLIST<T>;
+	using type = T;
 };
 template<typename ... ARGS>
 struct inline_variant<TLIST<std::variant<ARGS...> > > {
@@ -231,11 +232,21 @@ template<typename T>
 struct inline_variant<TLIST<std::optional<T> > > {
 	using type = TLIST<std::variant<T>>;
 };
+template<typename T>
+struct get_variant_args {
+	using type = TLIST<T>;
+};
+
+template<typename ... ARGS>
+struct get_variant_args<std::variant<ARGS...>> {
+	using type = TLIST<ARGS...>;
+};
 template<typename L1, typename L2>
 struct or_helper {
 	using NL1 = typename inline_variant<typename inline_tuple<L1>::type>::type;
 	using NL2 = typename inline_variant<typename inline_tuple<L2>::type>::type;
-	using merge = typename append_list<NL1,NL2>::type;
+	static constexpr bool uncertainty = is_variant<typename NL1::type> || is_variant<typename NL2::type> || is_optional<typename NL1::type> || is_optional<typename NL2::type>;
+	using merge = typename append_list<typename get_variant_args<typename NL1::type>::type, typename get_variant_args<typename NL2::type>::type >::type;
 	using non_empty = typename remove_t<merge,std::tuple<>>::type;
 	using non_dup = typename dedup<non_empty>::type;
 	using type = 
@@ -244,7 +255,12 @@ struct or_helper {
 			TLIST<typename NL1::type>,
 			typename t_if_else<
 				list_size<non_dup>::value == 1,
-				TLIST<typename non_dup::type>,
+				TLIST<
+					typename t_if_else<uncertainty,
+						std::optional<typename non_dup::type>,
+						typename non_dup::type
+					>::type
+				>,
 				TLIST<typename apply_list<std::variant,non_dup>::type>
 			>::type
 		>::type;
@@ -273,6 +289,28 @@ template<typename T>
 struct or_helper<T,T> {
 	using type = T;
 };
+
+/* template<typename A..., typename B> */
+/* struct variant_merge<std::variant<A...>,std::variant<B...>> { */
+	
+/* }; */
+/* template<typename...A, typename...B> */ 
+/* struct or_helper<TLIST<A...>,TLIST<B...>> { */
+/* 	using TL = typename t_if_else<sizeof...(A) == 1, */
+/* 			typename TLIST<A...>::type, */
+/* 			std::tuple<A...> */
+/* 		>::type; */
+/* 	using TR = typename t_if_else<sizeof...(B) == 1, */
+/* 			typename TLIST<B...>::type, */
+/* 			std::tuple<B...> */
+/* 		>::type; */
+/* 	using VM = typename variant_merge<TL,TR>::type; */
+/* 	using type = typename t_if_else<std::is_same_v<TL,TR>, */
+/* 		  TLIST<TL>, */
+/* 		  typename t_if_else<!std::is_same */
+
+/* }; */
+
 
 /* static_assert(std::same_as<or_helper<TLIST<EOL>,TLIST<EOL>>::type,TLIST<EOL>>); */
 /* static_assert(std::same_as<or_helper<TLIST<int>,TLIST<EOL>>::type,TLIST<std::optional<int>>>); */
@@ -320,7 +358,11 @@ struct or_p {
 				});
 				if(success){
 					get_first(ret...) = h.apply([](auto&...args) -> ret_type{
-						return ret_type{args...};
+						if constexpr (sizeof...(args) == 1 && is_variant<typename parser_t::UNPARSED_LIST::type>) {
+							return std::visit([](auto& inner){return ret_type{inner};}, args...);
+						}else {
+							return ret_type{args...};
+						}
 					});
 				}
 				return success;

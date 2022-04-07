@@ -1,5 +1,7 @@
 #include <type_traits>
 #include <tuple>
+#include <variant>
+#include <optional>
 #pragma once
 
 template<typename ... ARGS>
@@ -298,3 +300,11 @@ template<>
 struct dedup<TLIST<EOL>> {
 	using type = TLIST<EOL>;
 };
+template<typename T>
+constexpr bool is_variant = false;
+template<typename ...T>
+constexpr bool is_variant<std::variant<T...>> = true;
+template<typename T>
+constexpr bool is_optional = false;
+template<typename ...T>
+constexpr bool is_optional<std::optional<T...>> = true;

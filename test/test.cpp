@@ -140,6 +140,34 @@ TEST(consumer,ret){
 	parse("   ",ws*retd<std::string_view>("hey")*assign(text));
 	EXPECT_EQ(text,"hey");
 }
+TEST(core, multi_returning_alternative){
+	auto parser = 
+		"a"_p*ret<int8_t(2)>
+		| "b"_p*ret<int16_t(3)>
+		| "c"_p*ret<int32_t(4)>;
+	auto casted_parser = parser*cast<int>;
+
+	static_assert(std::is_same_v<decltype(parser)::UNPARSED_LIST,
+			TLIST<std::variant<int8_t,int16_t,int32_t>>>);
+	int i = 0;
+	EXPECT_TRUE(parse("a",casted_parser,i));
+	EXPECT_EQ(i,2);
+	EXPECT_TRUE(parse("b",casted_parser,i));
+	EXPECT_EQ(i,3);
+	EXPECT_TRUE(parse("c",casted_parser,i));
+	EXPECT_EQ(i,4);
+
+	auto p2 = fail | "z"_p*ret<2> | "x"_p*ret<3>;
+	/* print_types<typename decltype(p2)::UNPARSED_LIST> asd; */
+	static_assert(std::is_same_v<
+			typename decltype(p2)::UNPARSED_LIST,
+			TLIST<std::optional<int>>>);
+	std::optional<int> res;
+	EXPECT_TRUE(parse("z",p2,res));
+	EXPECT_EQ(res,2);
+	EXPECT_TRUE(parse("x",p2,res));
+	EXPECT_EQ(res,3);
+}
 TEST(quantifiers,any){
 	{
 		basic_context ctx("aaaa");
