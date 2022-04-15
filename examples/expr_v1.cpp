@@ -1,6 +1,8 @@
 #include "ezpz/ezpz.hpp"
 #include "ezpz/macros.hpp"
 
+using namespace ezpz;
+
 int main(){
 	using num_t = int;
 	auto expr = make_rpo<num_t>([](auto& ctx, auto& self, num_t& ret){

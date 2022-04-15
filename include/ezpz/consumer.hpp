@@ -1,6 +1,9 @@
 #pragma once
 #include <utility>
 
+namespace ezpz{
+
+
 template<typename T>
 concept std_map_c = requires(T t, typename T::key_type k, typename T::mapped_type m){
 	{
@@ -79,3 +82,5 @@ auto cast = [](auto&& val){
 		return static_cast<T>(std::move(val));
 	}
 };
+
+}

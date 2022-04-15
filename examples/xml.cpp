@@ -3,6 +3,7 @@
 #include "ezpz/ezpz.hpp"
 #include "ezpz/extra/graph_context.hpp"
 #include <string>
+using namespace ezpz;
 
 struct node {
 	std::string_view name;

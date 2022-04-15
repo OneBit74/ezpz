@@ -3,6 +3,7 @@
 #include "ezpz/context.hpp"
 #include <string>
 
+namespace ezpz {
 template<typename T>
 concept tlist_c = requires(){
 	typename T::type;
@@ -104,3 +105,5 @@ struct dont_store_empty<T>{
 		return *(T*)(1);
 	}
 };
+	
+}

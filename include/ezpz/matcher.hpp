@@ -5,6 +5,7 @@
 #include <regex>
 #include <cctype>
 
+namespace ezpz{
 
 struct ref_text_p {
 	using active = active_f;
@@ -297,3 +298,4 @@ inline auto regex(std::string_view pattern){
 	});
 }
 
+}

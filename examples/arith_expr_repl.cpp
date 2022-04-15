@@ -2,6 +2,7 @@
 #include "ezpz/macros.hpp"
 #include <cmath>
 #include <iostream>
+using namespace ezpz;
 
 int main(){
 

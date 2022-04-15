@@ -5,6 +5,9 @@
 #include <iostream>
 #include <cxxabi.h>
 #include <cassert>
+#include <ranges>
+#include <string_view>
+namespace ezpz{
  
 template<typename T>
 std::string type_name()
@@ -38,7 +41,6 @@ concept basic_context_c = context_c<T> && requires(T t){
 	} -> std::same_as<char>;
 };
 
-#include <string_view>
 class min_context {
 public:
 	std::string_view input;
@@ -146,7 +148,6 @@ public:
 	}
 };
 
-#include <ranges>
 template<std::ranges::forward_range R>
 struct forward_range_context {
 	using iterator = std::ranges::iterator_t<R>;
@@ -177,3 +178,5 @@ struct forward_range_context {
 		++cur;
 	};
 };
+
+}

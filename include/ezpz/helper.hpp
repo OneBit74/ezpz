@@ -2,6 +2,8 @@
 #include "ezpz/parse_object.hpp"
 #include <iostream>
 
+namespace ezpz{
+
 struct print_p {
 	using active = active_f;
 	using UNPARSED_LIST = TLIST<EOL>;
@@ -116,7 +118,7 @@ struct must_p {
 
 	bool _parse(auto& ctx, auto&&...args){
 		if(!parse(ctx,p,args...)){
-			err_msg(ctx);
+			err(ctx);
 			throw parse_error();
 		}
 		return true;
@@ -134,4 +136,4 @@ parser auto must(auto&& p1, auto&& err_msg){
 	return must_p<P1_t, msg_t>(std::forward<P1_t>(p1),std::forward<msg_t>(err_msg));
 }
 
-
+}

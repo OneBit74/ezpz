@@ -5,6 +5,7 @@
 #include <optional>
 #include <tuple>
 
+namespace ezpz{
 
 template<typename F, typename _RET, typename _ARGS>
 struct f_wrapper : public F {
@@ -51,7 +52,7 @@ struct consume_p {
 			using hold_type = typename instantiate_list<hold_normal,hold_args>::type;
 			hold_type hold;
 
-			bool success = hold.apply([&](auto& first, auto&...upper){
+			bool success = hold.apply([&](auto&, auto&...upper){
 				return [&](auto&...args){
 					return parse(ctx,parent,args...,upper...);
 				};
@@ -575,4 +576,6 @@ template<typename ctx, typename...RET>
 parser auto make_poly(auto&& parser){
 	using P_t = std::decay_t<decltype(parser)>;
 	return polymorphic_rpo_derived<P_t,ctx,RET...>{std::forward<P_t>(parser)};
+}
+
 }

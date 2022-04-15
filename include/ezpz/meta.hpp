@@ -4,6 +4,8 @@
 #include <optional>
 #pragma once
 
+namespace ezpz{
+
 template<typename ... ARGS>
 struct  print_types;
 
@@ -312,3 +314,5 @@ template<typename T>
 constexpr bool is_optional = false;
 template<typename ...T>
 constexpr bool is_optional<std::optional<T...>> = true;
+
+}

@@ -4,6 +4,8 @@
 #include <gtest/gtest.h>
 #include <rapidcheck/gtest.h>
 
+using namespace ezpz;
+
 TEST(context,range_context){
 	std::vector<int> range = {1,2,3,3,2,1};
 	forward_range_context ctx(range);

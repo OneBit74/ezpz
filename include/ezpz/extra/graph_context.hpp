@@ -2,6 +2,8 @@
 #include <iostream>
 #include <vector>
 
+namespace ezpz {
+
 struct graph_option_show_failures;
 struct graph_option_show_all;
 
@@ -79,3 +81,5 @@ struct graph_context : public base {
 		}
 	}
 };
+
+}

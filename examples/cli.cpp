@@ -3,6 +3,8 @@
 #include "unparser.hpp"
 #include <iostream>
 
+using namespace ezpz;
+
 int main(int argc, char** argv){
 
 	// arguments

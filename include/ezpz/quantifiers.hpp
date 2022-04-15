@@ -3,6 +3,8 @@
 #include "ezpz/parse_object.hpp"
 #include "ezpz/helper.hpp"
 
+namespace ezpz{
+
 template<parser T>
 parser auto plus(T&& rhs) {
 	using TT = std::decay_t<T>;
@@ -361,4 +363,6 @@ auto reduce(parser auto&& aggregatable_parser, std::invocable auto&& val_f, auto
 		std::forward<V_t>(val_f),
 		std::forward<A_t>(comb_f)
 	};
+}
+
 }

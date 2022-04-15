@@ -1,6 +1,8 @@
 #include "ezpz/ezpz.hpp"
 #include <iostream>
 
+using namespace ezpz;
+
 int main(){
 	using ctx_t = basic_context;
 

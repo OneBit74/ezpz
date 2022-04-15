@@ -3,6 +3,8 @@
 #include <string>
 #include <type_traits>
 
+using namespace ezpz;
+
 enum TOKEN_TYPE {
 	LBRACE,RBRACE,EQ,
 	INTEGER,FLOAT,STRING,IDENT
