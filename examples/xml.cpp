@@ -17,7 +17,7 @@ struct xml_node_p {
 	using UNPARSED_LIST = TLIST<node>;
 
 	bool _parse(auto& ctx, node& ret){
-		auto attribute_list = any((!ident+ws+"="+ws+!ident+ws)*[&](auto& key, auto& value){ret.attributes.emplace_back(key,value);});
+		auto attribute_list = any((!ident+ws+"="+ws+!ident+ws)*[&](auto&& key, auto&& value){ret.attributes.emplace_back(key,value);});
 		return parse(ctx,
 			"<" + ws + (ident*assign(ret.name)) + ws + attribute_list + ">" + ws +
 			(

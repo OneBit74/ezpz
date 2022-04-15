@@ -320,6 +320,8 @@ struct reduce_p {
 	using active = active_f;
 	using ezpz_prop = typename get_prop_tag<P>::type;
 
+	static_assert(!std::same_as<TLIST<EOL>,typename P::INNER_RET>, "[ezpz][reduce_p] no return values available to aggregate over");
+
 	[[no_unique_address]] P p;
 	[[no_unique_address]] V v;
 	[[no_unique_address]] A a;
@@ -338,12 +340,13 @@ struct reduce_p {
 				(ARGS&&...args){
 			using constraint = typename apply_list<
 				std::is_invocable_r,
-				TLIST<RET,A,RET,ARGS...>
+				TLIST<RET,A,RET,ARGS&&...>
 			>::type;
 			if constexpr (constraint::value){
-				ret = a(ret,args...);
+				ret = a(ret,std::move(args)...);
 			}else{
-				a(ret,args...);
+				//TODO check invocable
+				a(ret,std::move(args)...);
 			}
 		});
 	}

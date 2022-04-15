@@ -40,10 +40,10 @@ int main(){
 	auto ident = capture("%" | plus(alpha));
 	std::unordered_map<std::string,num_t> store;
 	auto function = 
-		  ( EZPZ_STRING("sin(")+!(ref(expr)*[](auto& val){return std::sin(val);})+EZPZ_STRING(")") )
-		| ( EZPZ_STRING("cos(")+!(ref(expr)*[](auto& val){return std::cos(val);})+EZPZ_STRING(")") )
-		| ( EZPZ_STRING("abs(")+!(ref(expr)*[](auto& val){return std::abs(val);})+EZPZ_STRING(")") )
-		| ( EZPZ_STRING("sqrt(")+!(ref(expr)*[](auto& val){return (num_t)(std::sqrt(val));})+EZPZ_STRING(")") )
+		  ( EZPZ_STRING("sin(")+!(ref(expr)*[](auto val){return std::sin(val);})+EZPZ_STRING(")") )
+		| ( EZPZ_STRING("cos(")+!(ref(expr)*[](auto val){return std::cos(val);})+EZPZ_STRING(")") )
+		| ( EZPZ_STRING("abs(")+!(ref(expr)*[](auto val){return std::abs(val);})+EZPZ_STRING(")") )
+		| ( EZPZ_STRING("sqrt(")+!(ref(expr)*[](auto val){return (num_t)(std::sqrt(val));})+EZPZ_STRING(")") )
 		;
 	auto base_impl = make_poly<ctx_t,num_t>(
 		  ("-"+ws+!(ref(base)*std::negate<num_t>()))

@@ -22,33 +22,33 @@ concept std_set_c = !std_map_c<T> && requires(T t, typename T::value_type val){
 
 template<std_map_c into_t>
 auto insert(into_t& data){
-	return [&data](typename into_t::key_type& key, typename into_t::mapped_type& val){
+	return [&data](typename into_t::key_type&& key, typename into_t::mapped_type&& val){
 		data.insert_or_assign(std::move(key),std::move(val));
 	};
 }
 template<std_adaptor_c into_t>
 auto insert(into_t& data){
-	return [&data](typename into_t::value_type& value){
+	return [&data](typename into_t::value_type&& value){
 		data.push(std::move(value));
 	};
 };
 template<std_set_c into_t>
 auto insert(into_t& data){
-	return [&data](typename into_t::value_type& value){
+	return [&data](typename into_t::value_type&& value){
 		data.insert(std::move(value));
 	};
 };
 template<std_seq_c into_t>
 auto insert(into_t& data){
-	return [&data](typename into_t::value_type& value){
+	return [&data](typename into_t::value_type&& value){
 		data.push_back(std::move(value));
 	};
 };
 
 template<typename T>
 auto assign(T& target){
-	return [&](T& t){
-		target = std::forward<T>(t);
+	return [&](T&& t){
+		target = std::move(t);
 	};
 }
 template<typename T>
@@ -58,7 +58,7 @@ auto assign(T& target, T value){
 	};
 }
 
-inline auto print_all = [](auto&...args){
+inline auto print_all = [](auto&&...args){
 	((std::cout << args << ' '),...); 
 	std::cout << '\n';
 };
@@ -71,3 +71,11 @@ template<typename T>
 auto retd(T&& val){
 	return [=](){return val;};
 }
+template<typename T>
+auto cast = [](auto&& val){
+	if constexpr (is_variant<std::decay_t<decltype(val)>>) {
+		return std::visit([](auto&& inner){return static_cast<T>(std::move(inner));},std::move(val));
+	}else{
+		return static_cast<T>(std::move(val));
+	}
+};

@@ -231,6 +231,10 @@ struct hold_normal {
 	std::tuple<ARGS...> data;
 
 	template<typename F>
+	auto move_into(F&& f){
+		return std::apply(f,std::move(data));
+	}
+	template<typename F>
 	auto apply(F&& f){
 		return std::apply(f,data);
 	}

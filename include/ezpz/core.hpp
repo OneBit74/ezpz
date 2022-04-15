@@ -45,42 +45,33 @@ struct consume_p {
 		return true;
 	}
 	bool _parse(auto& ctx, UNPARSED&...up_args){
-		if constexpr(std::is_same_v<REM,VOID>){
+		if constexpr (!std::is_same_v<typename unp::RET,void>){
+			using hold_args = typename get_decay_list<
+					typename unp::ARGS>::type;
+			using hold_type = typename instantiate_list<hold_normal,hold_args>::type;
+			hold_type hold;
+
+			bool success = hold.apply([&](auto& first, auto&...upper){
+				return [&](auto&...args){
+					return parse(ctx,parent,args...,upper...);
+				};
+			}(up_args...));
+			if(!success)return false;
+
+			assign_first(hold.move_into(f),up_args...);
 			return true;
 		}else{
-			if constexpr( std::is_same_v<unp,VOID> ) {
-				return parse(ctx,parent,up_args...);
-			/* }else if constexpr(list_size<typename unp::ARGS>::value == 0 && std::is_same_v<typename unp::RET,void>){ */
-			/* 	auto ret = parse(ctx,parent,up_args...); */
-			/* 	if(ret)f(); */
-			/* 	return ret; */
-			}else if constexpr (!std::is_same_v<typename unp::RET,void>){
-				using hold_args = typename get_decay_list<
-					typename reverse_list<
-						typename unp::ARGS>::type>::type;
-				using hold_type = typename instantiate_list<hold,hold_args>::type;
-				hold_type hold;
+			using hold_args = typename get_decay_list<typename unp::ARGS>::type;
+			using hold_type = typename instantiate_list<hold_normal,hold_args>::type;
+			hold_type hold;
+			bool success = hold.apply([&](auto&...args){
+				return parse(ctx,parent,args...);
+			},up_args...);
+			if(!success)return false;
 
-				bool success = hold.apply_not_first([&](auto&...args){
-					return parse(ctx,parent,args...);
-				},up_args...);
-				if(!success)return false;
+			hold.move_into(f);
 
-				assign_first(hold.apply(f),up_args...);
-				return true;
-			}else{
-				using hold_args = typename get_decay_list<typename reverse_list<typename unp::ARGS>::type>::type;
-				using hold_type = typename instantiate_list<hold,hold_args>::type;
-				hold_type hold;
-				bool success = hold.apply([&](auto&...args){
-					return parse(ctx,parent,args...);
-				},up_args...);
-				if(!success)return false;
-
-				hold.apply(f);
-
-				return true;
-			}
+			return true;
 		}
 	}
 };
@@ -359,9 +350,11 @@ struct or_p {
 				if(success){
 					get_first(ret...) = h.apply([](auto&...args) -> ret_type{
 						if constexpr (sizeof...(args) == 1 && is_variant<typename parser_t::UNPARSED_LIST::type>) {
-							return std::visit([](auto& inner){return ret_type{inner};}, args...);
+							return std::visit([](auto&& inner){
+									return ret_type{std::forward<std::decay_t<decltype(inner)>>(inner)};
+							}, std::move(args)...);
 						}else {
-							return ret_type{args...};
+							return ret_type{std::move(args)...};
 						}
 					});
 				}
@@ -407,9 +400,21 @@ parser auto operator+(P1&& p1, P2&& p2){
 template<parser P, typename F>
 auto operator*(P&& p, F&& unparser) {
 	using P_t = std::decay_t<P>;
-	using invoke_info = invoke_list<F,typename get_ref_list<typename P_t::UNPARSED_LIST>::type>;
+	using invoke_info = invoke_list<F,typename P_t::UNPARSED_LIST>;
 	using invoke_args = typename invoke_info::args;
-	static_assert(!std::is_same_v<invoke_args,VOID>,"unparser callback is not callable by any of the available values");
+	/* print_types<typename P::UNPARSED_LIST,invoke_args> asd; */
+	static constexpr bool callable = !std::is_same_v<invoke_args,VOID>;
+	if constexpr(!callable){
+		static constexpr bool not_ref_callable = std::is_same_v<
+			invoke_list<F,typename get_ref_list<
+					typename P_t::UNPARSED_LIST
+				>::type
+			>,
+			invoke_info
+		>;
+		static_assert(not_ref_callable,"unparser callback callable with l-value references but not with r-value references");
+	}
+	static_assert(callable,"unparser callback is not callable by any of the available values");
 	using remaining_types = 
 		typename pop_n<list_size<invoke_args>::value,typename P_t::UNPARSED_LIST>::type;
 	using F_t = std::decay_t<F>;
@@ -477,9 +482,13 @@ struct rpo {
 	rpo(rpo&&) = delete;
 
 	template<typename F> requires std::invocable<F,context_t&,UNPARSED&...>
-	rpo(F&& f) {
+	explicit rpo(F&& f) {
 		this->f = std::forward<F>(f);
 	}
+	/* template<parser T> */ 
+	/* explicit rpo(T&& f) { */
+	/* 	operator=(std::forward<std::decay_t<T>>(f)); */
+	/* } */
 
 	template<parser T>
 	void operator=(T&& p){
@@ -526,6 +535,10 @@ public:
 
 	parser* p;
 	ref_p() = default;
+	ref_p(ref_p&&) = default;
+	ref_p(const ref_p&) = default;
+	ref_p& operator=(ref_p&&) = default;
+	ref_p& operator=(const ref_p&) = default;
 	ref_p(parser& op) : p(&op) {}
 
 	void _undo(auto& ctx) {

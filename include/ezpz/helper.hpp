@@ -135,11 +135,3 @@ parser auto must(auto&& p1, auto&& err_msg){
 }
 
 
-template<typename T>
-auto cast = [](auto& val){
-	if constexpr (is_variant<std::decay_t<decltype(val)>>) {
-		return std::visit([](auto& inner){return static_cast<T>(inner);},val);
-	}else{
-		return static_cast<T>(val);
-	}
-};
