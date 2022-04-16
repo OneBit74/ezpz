@@ -126,7 +126,6 @@ TEST(consumer,insert){
 
 	EXPECT_EQ(s.size(),1);
 	EXPECT_EQ(*begin(s),123);
-
 }
 
 TEST(consumer,ret){

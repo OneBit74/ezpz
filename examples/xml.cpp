@@ -30,7 +30,6 @@ struct xml_node_p {
 } xml_node;
 
 int main(){
-	
 	node root;
 	graph_context<basic_context, decltype(ident),text_p,xml_node_p,ref_text_p> ctx("<hey k1=v1 k2 = v2><p>This is</p><b>xml</b></hey>");
 	/* ctx.debug = true; */

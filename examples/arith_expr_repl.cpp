@@ -5,7 +5,6 @@
 using namespace ezpz;
 
 int main(){
-
 	using num_t = float;
 	using ctx_t = basic_context;
 
@@ -76,5 +75,4 @@ int main(){
 
 		parse(ctx,(assignment | ((!expr+eoi)*[&](auto val){store["%"] = val; std::cout << val << std::endl;}) | print("error")));
 	}
-
 }

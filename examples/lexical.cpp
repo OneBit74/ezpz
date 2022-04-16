@@ -70,5 +70,4 @@ int main(){
 
 	ctx_t ctx(tokens);
 	parse(ctx,programm+eoi | print("error"));
-
 }

@@ -26,7 +26,6 @@ inline struct fail_p {
 	bool _parse(auto&){
 		return false;
 	}
-	
 } fail;
 inline struct eoi_p {
 	using active = active_f;

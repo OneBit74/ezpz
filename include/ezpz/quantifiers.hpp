@@ -54,7 +54,6 @@ struct agg_any_p {
 					f(ret,result...);
 				}
 			});
-
 		}
 		
 		return true;
@@ -62,7 +61,6 @@ struct agg_any_p {
 };
 struct empty_aggregator {
 	inline void operator()(){
-	
 	};
 };
 template<parser T>
