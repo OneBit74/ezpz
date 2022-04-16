@@ -36,5 +36,4 @@ int main(){
 	std::cout << parse("{\"hey\":\"i'm json\"}",json+eoi) << std::endl;
 	std::cout << parse("[1,2,3,4]",json+eoi) << std::endl;
 	std::cout << parse("not json",json+eoi) << std::endl;
-	
 }
