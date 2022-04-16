@@ -127,6 +127,18 @@ TEST(consumer,insert){
 	EXPECT_EQ(s.size(),1);
 	EXPECT_EQ(*begin(s),123);
 }
+TEST(consumer,compress){
+	struct Foo {
+		int a = 0, b = 0;
+	} target;
+	auto foo_p = (!decimal<int>+" "_p+!decimal<int>)*compress<Foo>;
+
+	EXPECT_TRUE(parse("1 2",foo_p,target));
+	EXPECT_EQ(target.a,1);
+	EXPECT_EQ(target.b,2);
+
+	EXPECT_FALSE(parse("1 a",foo_p,target));
+}
 
 TEST(consumer,ret){
 	int val = 0;

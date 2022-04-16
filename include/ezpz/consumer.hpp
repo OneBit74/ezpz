@@ -66,6 +66,7 @@ inline auto print_all = [](auto&&...args){
 	std::cout << '\n';
 };
 
+//TODO make ret a rpo
 template<auto val>
 auto ret = [](){return val;};
 
@@ -81,6 +82,11 @@ auto cast = [](auto&& val){
 	}else{
 		return static_cast<T>(std::move(val));
 	}
+};
+
+template<typename Target>
+auto compress = [](auto&&...ARGS) -> Target {
+	return {std::forward<decltype(ARGS)>(ARGS)...};
 };
 
 }
