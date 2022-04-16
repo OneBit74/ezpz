@@ -109,7 +109,7 @@ struct and_p {
 	>::type;
 	using UNPARSED_LIST = typename append_list<L_ARGS,R_ARGS>::type;
 	using active = active_t;
-	using ezpz_prop = t_if_else<
+	using ezpz_prop = typename t_if_else<
 		contains<typename get_prop_tag<LHS>::type, always_true>::value
 		&& contains<typename get_prop_tag<RHS>::type, always_true>::value,
 		TLIST<always_true>,
@@ -321,7 +321,7 @@ struct or_p {
 		typename P1::UNPARSED_LIST,
 		typename P2::UNPARSED_LIST>::type;
 	using active = active_t;
-	using ezpz_prop = t_if_else< 
+	using ezpz_prop = typename t_if_else< 
 		contains<typename get_prop_tag<P2>::type,always_true>::value,
 		TLIST<always_true>,
 		TLIST<>

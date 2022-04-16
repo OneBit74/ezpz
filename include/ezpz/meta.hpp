@@ -41,7 +41,7 @@ struct get_prop_tag {
 };
 template<typename T> requires has_prop_tag<T>
 struct get_prop_tag<T> {
-	using type = T::ezpz_prop;
+	using type = typename T::ezpz_prop;
 };
 
 template<typename L, typename...ARGS>

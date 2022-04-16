@@ -68,7 +68,7 @@ struct empty_aggregator {
 template<parser T>
 struct any_p {
 	using UNPARSED_LIST = TLIST<EOL>;
-	using INNER_RET = T::UNPARSED_LIST;
+	using INNER_RET = typename T::UNPARSED_LIST;
 	using active = active_f;
 	using ezpz_prop = TLIST<always_true>;
 
@@ -161,8 +161,8 @@ parser auto optional(T&& rhs) {
 }
 template<parser T>
 struct peek_p {
-	using UNPARSED_LIST = T::UNPARSED_LIST; 
-	using active = T::active; 
+	using UNPARSED_LIST = typename T::UNPARSED_LIST; 
+	using active = typename T::active; 
 	using ezpz_prop = typename get_prop_tag<T>::type;
 
 	T p;
@@ -206,7 +206,7 @@ auto times(int amount,auto&& parser){
 template<parser P, typename count_f_t>
 struct max_p_impl {
 	using UNPARSED_LIST = TLIST<EOL>;
-	using INNER_RET = P::UNPARSED_LIST;
+	using INNER_RET = typename P::UNPARSED_LIST;
 	using active = active_f;
 
 	[[no_unique_address]] P p;
@@ -232,7 +232,7 @@ struct max_p_impl {
 	}
 };
 template<parser P, int count>
-using max_p_base_helper = t_if_else<
+using max_p_base_helper = typename t_if_else<
 		count==-1,
 		max_p_impl<P,dynamic_int_holder>,
 		max_p_impl<P,constant_int_holder<count>>
@@ -261,7 +261,7 @@ auto max(int amount,auto&& parser){
 template<parser P, typename count_f_t>
 struct min_p_impl {
 	using UNPARSED_LIST = TLIST<EOL>;
-	using INNER_RET = P::UNPARSED_LIST;
+	using INNER_RET = typename P::UNPARSED_LIST;
 	using active = active_f;
 
 	[[no_unique_address]] P p;
@@ -288,7 +288,7 @@ struct min_p_impl {
 	}
 };
 template<parser P, int count>
-using min_p_base_helper = t_if_else<
+using min_p_base_helper = typename t_if_else<
 		count==-1,
 		min_p_impl<P,dynamic_int_holder>,
 		min_p_impl<P,constant_int_holder<count>>

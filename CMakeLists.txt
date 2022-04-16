@@ -1,5 +1,6 @@
 project(ezpz)
-cmake_minimum_required(VERSION 3.21)
+cmake_minimum_required(VERSION 3.16.3)
+enable_testing()
 
 include(FetchContent)
 FetchContent_Declare(rapidcheck
@@ -43,4 +44,5 @@ add_executable(stest
 	test/test.cpp)
 target_link_libraries(stest ${GTEST_BOTH_LIBRARIES})
 add_dependencies(stest rapidcheck)
-target_link_libraries(stest ${rapidcheck_BINARY_DIR}/librapidcheck.a)
+target_link_libraries(stest ${rapidcheck_BINARY_DIR}/librapidcheck.a pthread)
+add_test(ezpz_tests stest)
