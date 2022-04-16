@@ -496,11 +496,7 @@ struct rpo {
 		using P_t = std::decay_t<T>;
 		static_assert(std::same_as<typename P_t::UNPARSED_LIST, UNPARSED_LIST>, "unexpected return-types of right-hand-side parser to ezpz::rpo");
 		f = [p = std::forward<P_t>(p)](context_t& ctx, auto&...up_args) mutable -> bool {
-			if constexpr (rparser<T>){
-				return parse(ctx,p,up_args...);
-			}else{
-				return parse(ctx,p);
-			}
+			return parse(ctx,p,up_args...);
 		};
 	}
 
