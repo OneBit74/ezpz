@@ -417,7 +417,7 @@ requires std::is_function_v<std::remove_pointer_t<decltype(func)>>
 }
 template<parser P, typename F>
 auto operator*(P&& p, F&& unparser)
-/* requires (!std::is_function_v<std::remove_pointer<std::decay_t<F>>>) */
+requires (!std::is_function_v<std::remove_pointer_t<std::decay_t<F>>>)
 {
 	using P_t = std::decay_t<P>;
 	using invoke_info = invoke_list<F,typename P_t::UNPARSED_LIST>;

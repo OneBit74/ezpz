@@ -11,13 +11,13 @@ int main(){
 	auto digit = "0" | onenine;
 	auto hex = digit | "A" | "B" | "C" | "D" | "E" | "F" | "a" | "b" | "c" | "d" | "e" | "f";
 	auto number = optional("-"_p) 
-		+ ("0"_p | onenine+any(digit)) 
+		+ ("0"_p | (onenine+any(digit)))
 		+ optional("."+plus(digit)) 
 		+ optional(("E"_p | "e") + optional("-"_p|"+"_p) + any(digit));
 
 	auto string = "\""_p + any(
-			  notf("\""_p) + notf("\\") + single
-			| "\\" + ("\""_p | "\\" | "/" | "b" | "f" | "n" | "r" | "t" | "u"+hex+hex+hex+hex)
+			  (notf("\""_p) + notf("\\") + single)
+			| ("\\" + ("\""_p | "\\" | "/" | "b" | "f" | "n" | "r" | "t" | ("u"+hex+hex+hex+hex)))
 			) + "\"";
 
 	polymorphic_rpo<ctx_t> value;

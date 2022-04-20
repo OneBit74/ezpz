@@ -53,7 +53,7 @@ int main(){
 		};
 
 	
-	parse(" abc = 420 ",any(token_parser)+eoi | print("error"));
+	parse(" abc = 420 ",(any(token_parser)+eoi) | print("error"));
 	std::cout << tokens.size() << std::endl;
 
 	using ctx_t = forward_range_context<std::vector<TOKEN>>;
@@ -61,7 +61,7 @@ int main(){
 	auto int_p = accept_if_equal(INTEGER);
 	auto float_p = accept_if_equal(FLOAT);
 	auto num = int_p | float_p;
-	auto string = accept_if_equal(STRING);
+	/* auto string = accept_if_equal(STRING); */
 	auto ident = accept_if_equal(IDENT);
 	auto eq = accept_if_equal(EQ);
 
@@ -69,5 +69,5 @@ int main(){
 	auto programm = assignment;
 
 	ctx_t ctx(tokens);
-	parse(ctx,programm+eoi | print("error"));
+	parse(ctx,(programm+eoi) | print("error"));
 }
