@@ -42,7 +42,7 @@ void undo(context_c auto& ctx, parser auto& p){
 	}
 }
 
-bool parse(std::string s, parser auto&& p, auto&...args){
+bool parse(std::string_view s, parser auto&& p, auto&...args){
 	basic_context ctx(std::move(s));
 	return parse(ctx,std::forward<std::decay_t<decltype(p)>>(p),args...);
 }
