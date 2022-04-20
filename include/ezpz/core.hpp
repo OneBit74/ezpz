@@ -398,8 +398,27 @@ parser auto operator+(P1&& p1, P2&& p2){
 	using P2_t = std::decay_t<P2>;
 	return and_p<P1_t,P2_t>{std::forward<P1_t>(p1),std::forward<P2_t>(p2)};
 }
+template<parser P>
+auto operator*(P&& p, auto func)
+requires std::is_function_v<std::remove_pointer_t<decltype(func)>> 
+{
+	using P_t = std::decay_t<P>;
+	using F_t = decltype(func);
+	return std::forward<P_t>(p)*
+		[=](auto&&...args)
+		requires std::is_invocable_v<F_t,decltype(args)...>
+		{
+			if constexpr ( std::is_same_v<void,decltype(func(args...))> ) {
+				func(args...);
+			}else{
+				return func(args...);
+			}
+		};
+}
 template<parser P, typename F>
-auto operator*(P&& p, F&& unparser) {
+auto operator*(P&& p, F&& unparser)
+/* requires (!std::is_function_v<std::remove_pointer<std::decay_t<F>>>) */
+{
 	using P_t = std::decay_t<P>;
 	using invoke_info = invoke_list<F,typename P_t::UNPARSED_LIST>;
 	using invoke_args = typename invoke_info::args;

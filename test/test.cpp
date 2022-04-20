@@ -153,6 +153,25 @@ TEST(consumer,ret){
 	parse("   ",ws*retd<std::string_view>("hey")*assign(text));
 	EXPECT_EQ(text,"hey");
 }
+namespace consume_with_function_ptr {
+	void nothing(){
+	}
+	int ret2(){
+		return 2;
+	}
+	int ret_times_two(int x){
+		return 2*x;
+	}
+	TEST(core, consume_with_function_ptr){
+		EXPECT_TRUE(parse("",no_parser*nothing));
+		int res = 0;
+		EXPECT_TRUE(parse("",no_parser*ret2,res));
+		EXPECT_EQ(res,2);
+		res = 0;
+		EXPECT_TRUE(parse("",no_parser*ret2*ret_times_two,res));
+		EXPECT_EQ(res,4);
+	}
+}
 TEST(core, multi_returning_alternative){
 	auto parser = 
 		"a"_p*ret<int8_t(2)>
