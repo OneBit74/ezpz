@@ -14,7 +14,7 @@ struct print_p {
 		return true;
 	}
 };
-parser auto print(std::string_view text){
+inline parser auto print(std::string_view text){
 	return print_p{text};
 };
 
@@ -133,6 +133,43 @@ parser auto must(auto&& p1, auto&& err_msg){
 	using P1_t = std::decay_t<decltype(p1)>;
 	using msg_t = std::decay_t<decltype(err_msg)>;
 	return must_p<P1_t, msg_t>(std::forward<P1_t>(p1),std::forward<msg_t>(err_msg));
+}
+
+template<typename...TS>
+struct retd_p {
+	using UNPARSED_LIST = TLIST<TS...>;
+	using active = active_f;
+	using ezpz_prop = TLIST<always_true>;
+
+	std::tuple<TS...> hold;
+	retd_p(auto&&... args) : hold{std::forward<std::decay_t<decltype(args)>>(args)...}
+	{}
+	auto operator()() requires (sizeof...(TS) == 1) {
+		return std::get<0>(hold);
+	}
+	bool _parse(auto&, auto&...ret){
+		std::tie(ret...) = hold;
+		return true;
+	}
+};
+template<auto...vals>
+struct ret_p {
+	using UNPARSED_LIST = TLIST<decltype(vals)...>;
+	using ezpz_prop = TLIST<always_true>;
+	using active = active_f;
+	bool _parse(auto&, auto&...ret){
+		((ret = vals),...);
+		return true;
+	}
+	auto operator()() const requires (sizeof...(vals) == 1) {
+		return (vals,...);
+	}
+};
+template<auto...vals>
+inline auto ret = ret_p<vals...>{};
+
+auto retd(auto&&...vals){
+	return retd_p<std::decay_t<decltype(vals)>...>(std::forward<decltype(vals)>(vals)...);
 }
 
 }

@@ -63,7 +63,7 @@ public:
 	inline void notify_enter(auto&) {}
 	inline void notify_leave(auto&, bool) {}
 };
-void print_special_chars(std::string_view sv){
+inline void print_special_chars(std::string_view sv){
 	for(char c : sv){
 		switch(c){
 			case '"':

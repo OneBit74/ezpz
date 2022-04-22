@@ -66,15 +66,6 @@ inline auto print_all = [](auto&&...args){
 	std::cout << '\n';
 };
 
-//TODO make ret a rpo
-template<auto val>
-auto ret = [](){return val;};
-
-
-template<typename T>
-auto retd(T&& val){
-	return [=](){return val;};
-}
 template<typename T>
 auto cast = [](auto&& val){
 	if constexpr (is_variant<std::decay_t<decltype(val)>>) {

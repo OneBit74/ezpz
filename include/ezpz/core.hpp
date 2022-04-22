@@ -460,7 +460,7 @@ inline struct no_parser_p {
 		return true;
 	}
 } no_parser;
-template<parser P, typename F>
+template<parser P, typename F> requires (not parser<F>)
 auto operator*(F&& unparser, P&& p) {
 	return no_parser*unparser+p;
 }
