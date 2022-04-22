@@ -41,7 +41,14 @@ add_executable(json examples/json.cpp)
 
 find_package(GTest REQUIRED)
 add_executable(stest
-	test/test.cpp)
+	test/props.cpp
+	test/quantifiers.cpp
+	test/helper.cpp
+	test/matcher.cpp
+	test/consumer.cpp
+	test/core.cpp
+	test/context.cpp
+)
 target_link_libraries(stest ${GTEST_BOTH_LIBRARIES})
 add_dependencies(stest rapidcheck)
 target_link_libraries(stest ${rapidcheck_BINARY_DIR}/librapidcheck.a pthread)
