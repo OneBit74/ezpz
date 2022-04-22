@@ -4,7 +4,7 @@ using namespace ezpz;
 
 TEST(matcher,accept_if){
 	std::vector<int> range = {1,2,3,4,5,6};
-	forward_range_context ctx(range);
+	forward_range_context<std::vector<int>> ctx(std::move(range));
 
 	auto even = accept_if([](int val){return (val+1)%2;});
 	auto odd = accept_if([](int val){return val%2;});

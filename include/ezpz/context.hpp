@@ -151,13 +151,14 @@ public:
 template<std::ranges::forward_range R>
 struct forward_range_context {
 	using iterator = std::ranges::iterator_t<R>;
-	R& range;
+	using end_iterator = decltype(std::end(std::declval<R>()));
+	R range;
 
 	iterator start;
-	iterator end;
+	end_iterator end;
 	iterator cur;
 
-	forward_range_context(R& range) : range(range), start(std::begin(range)), end(std::end(range)), cur(std::begin(range)) {}
+	forward_range_context(auto&& range_p) : range(std::forward<R>(range_p)), start(std::begin(range)), end(std::end(range)), cur(std::begin(range)) {}
 
 	auto token(){
 		return *cur;
