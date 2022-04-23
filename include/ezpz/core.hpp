@@ -99,15 +99,15 @@ template<parser LHS, parser RHS>
 struct and_p {
 	using L_ARGS = typename t_if_else<
 		should_forget<LHS>,
-		TLIST<EOL>,
+		TLIST<>,
 		typename LHS::UNPARSED_LIST
 	>::type;
 	using R_ARGS = typename t_if_else<
 		should_forget<RHS>,
-		TLIST<EOL>,
+		TLIST<>,
 		typename RHS::UNPARSED_LIST
 	>::type;
-	using UNPARSED_LIST = typename append_list<L_ARGS,R_ARGS>::type;
+	using UNPARSED_LIST = typename L_ARGS::append<R_ARGS>;
 	using active = active_t;
 	using ezpz_prop = typename t_if_else<
 		contains<typename get_prop_tag<LHS>::type, always_true>::value
@@ -188,7 +188,7 @@ auto operator!(T&& nr) {
 }
 template<parser parser_t>
 struct forget {
-	using UNPARSED_LIST = TLIST<EOL>;
+	using UNPARSED_LIST = TLIST<>;
 	using active = active_f;
 
 	[[no_unique_address]] parser_t p;
@@ -207,7 +207,7 @@ template<typename L>
 struct inline_tuple {
 	using type = 
 		typename t_if_else<
-			list_size<L>::value == 1,
+			L::size == 1,
 			L,
 			TLIST< typename apply_list<std::tuple,L>::type>
 	>::type;
@@ -243,10 +243,10 @@ struct or_helper {
 	using non_dup = typename dedup<non_empty>::type;
 	using type = 
 		typename t_if_else<
-			std::is_same_v<NL1,NL2> && list_size<NL1>::value == 1,
+			std::is_same_v<NL1,NL2> && NL1::size == 1,
 			TLIST<typename NL1::type>,
 			typename t_if_else<
-				list_size<non_dup>::value == 1,
+				non_dup::size == 1,
 				TLIST<
 					typename t_if_else<uncertainty,
 						std::optional<typename non_dup::type>,
@@ -264,18 +264,18 @@ struct or_helper<TLIST<std::variant<A...>>,TLIST<std::variant<B...>>> {
 	using type = typename instantiate_list<std::variant,typename dedup<TLIST<A...,B...>>::type>::type;
 	print_types<type,A...,B...> asd;
 };
-template<typename T> requires (!std::same_as<T,TLIST<EOL>>)
-struct or_helper<T,TLIST<EOL>> {
+template<typename T> requires (!std::same_as<T,TLIST<>>)
+struct or_helper<T,TLIST<>> {
 	using inner = typename t_if_else<
-			list_size<T>::value == 1,
+			T::size == 1,
 			typename T::type,
 			typename apply_list<std::tuple,T>::type
 		>::type;
 	using type = TLIST<std::optional<inner>>;
 };
-template<typename T> requires (!std::same_as<T,TLIST<EOL>>)
-struct or_helper<TLIST<EOL>,T> {
-	using type = typename or_helper<T,TLIST<EOL>>::type;
+template<typename T> requires (!std::same_as<T,TLIST<>>)
+struct or_helper<TLIST<>,T> {
+	using type = typename or_helper<T,TLIST<>>::type;
 };
 template<typename T>
 struct or_helper<T,T> {
@@ -336,7 +336,7 @@ struct or_p {
 	auto attempt(T& t, auto& ctx, auto&...ret) -> bool {
 		using parser_t = std::decay_t<T>;
 		if constexpr( rparser<parser_t> ){
-			if constexpr (list_size<UNPARSED_LIST>::value == 1){
+			if constexpr (UNPARSED_LIST::size == 1){
 				using h_t = typename apply_list<hold_normal,typename parser_t::UNPARSED_LIST>::type;
 				using ret_type = typename UNPARSED_LIST::type;
 
@@ -436,7 +436,7 @@ requires (!std::is_function_v<std::remove_pointer_t<std::decay_t<F>>>)
 	}
 	static_assert(callable,"unparser callback is not callable by any of the available values");
 	using remaining_types = 
-		typename pop_n<list_size<invoke_args>::value,typename P_t::UNPARSED_LIST>::type;
+		typename pop_n<invoke_args::size,typename P_t::UNPARSED_LIST>::type;
 	using F_t = std::decay_t<F>;
 	using F_TYPE = f_wrapper<F_t,typename invoke_info::ret,typename invoke_info::args>;
 	if constexpr (!std::is_same_v<typename invoke_info::ret,void> && !std::is_same_v<typename invoke_info::ret,VOID>){

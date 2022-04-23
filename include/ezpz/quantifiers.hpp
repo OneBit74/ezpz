@@ -65,7 +65,7 @@ struct empty_aggregator {
 };
 template<parser T>
 struct any_p {
-	using UNPARSED_LIST = TLIST<EOL>;
+	using UNPARSED_LIST = TLIST<>;
 	using INNER_RET = typename T::UNPARSED_LIST;
 	using active = active_f;
 	using ezpz_prop = TLIST<always_true>;
@@ -203,7 +203,7 @@ auto times(int amount,auto&& parser){
 }
 template<parser P, typename count_f_t>
 struct max_p_impl {
-	using UNPARSED_LIST = TLIST<EOL>;
+	using UNPARSED_LIST = TLIST<>;
 	using INNER_RET = typename P::UNPARSED_LIST;
 	using active = active_f;
 
@@ -258,7 +258,7 @@ auto max(int amount,auto&& parser){
 }
 template<parser P, typename count_f_t>
 struct min_p_impl {
-	using UNPARSED_LIST = TLIST<EOL>;
+	using UNPARSED_LIST = TLIST<>;
 	using INNER_RET = typename P::UNPARSED_LIST;
 	using active = active_f;
 
@@ -320,7 +320,7 @@ struct reduce_p {
 	using active = active_f;
 	using ezpz_prop = typename get_prop_tag<P>::type;
 
-	static_assert(!std::same_as<TLIST<EOL>,typename P::INNER_RET>, "[ezpz][reduce_p] no return values available to aggregate over");
+	static_assert(!std::same_as<TLIST<>,typename P::INNER_RET>, "[ezpz][reduce_p] no return values available to aggregate over");
 
 	[[no_unique_address]] P p;
 	[[no_unique_address]] V v;

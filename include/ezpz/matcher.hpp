@@ -9,7 +9,7 @@ namespace ezpz{
 
 struct ref_text_p {
 	using active = active_f;
-	using UNPARSED_LIST = TLIST<EOL>;
+	using UNPARSED_LIST = TLIST<>;
 
 	const std::string_view& sv;
 	inline ref_text_p(const std::string_view& sv) : sv(sv) {}
@@ -27,7 +27,7 @@ struct ref_text_p {
 template<typename F> requires std::is_invocable_r_v<std::string_view,F>
 struct fast_text_p {
 	using active = active_f;
-	using UNPARSED_LIST = TLIST<EOL>;
+	using UNPARSED_LIST = TLIST<>;
 
 	[[no_unique_address]] F f;
 	inline fast_text_p(auto&& f) : f(std::forward<F>(f)) {}
@@ -46,7 +46,7 @@ struct fast_text_p {
 
 struct text_ci_p {
 	using active = active_f;
-	using UNPARSED_LIST = TLIST<EOL>;
+	using UNPARSED_LIST = TLIST<>;
 
 	std::string_view sv;
 	constexpr text_ci_p(std::string_view sv) : sv(sv) {}
@@ -64,7 +64,7 @@ struct text_ci_p {
 
 struct text_p {
 	using active = active_f;
-	using UNPARSED_LIST = TLIST<EOL>;
+	using UNPARSED_LIST = TLIST<>;
 
 	std::string_view sv;
 	constexpr text_p(std::string_view sv) : sv(sv) {}
@@ -112,7 +112,7 @@ parser auto operator+(std::string_view sv, T&& rhs){
 template<const char* data, size_t size>
 struct text_pc {
 	using active = active_f;
-	using UNPARSED_LIST = TLIST<EOL>;
+	using UNPARSED_LIST = TLIST<>;
 	static constexpr const char* end = data+size;
 	inline bool _parse(basic_context_c auto& ctx) {
 		auto cur = data;
@@ -136,7 +136,7 @@ inline constexpr parser auto operator "" _p(const char* data, size_t size){
 
 inline struct ws_p {
 	using active = active_f;
-	using UNPARSED_LIST = TLIST<EOL>;
+	using UNPARSED_LIST = TLIST<>;
 
 	inline bool _parse(basic_context_c auto& ctx){
 		while(!ctx.done()){

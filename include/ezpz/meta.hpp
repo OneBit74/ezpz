@@ -12,22 +12,86 @@ struct  print_types;
 template<typename T, T...vals>
 struct [[deprecated]] print_vals;
 
+class VOID {};
 struct active_t;
 struct active_f;
 struct always_true;
 struct always_false;
 
+template<bool b, template<typename...> class C, typename...ARGS>
+struct instantiate_if {
+	using type = VOID;
+};
+template< template<typename...> class C, typename...ARGS>
+struct instantiate_if<true,C,ARGS...> : C<ARGS...> {
+	using type = C<ARGS...>;
+};
 
 struct EOL {};
-template<typename FIRST=EOL, typename ... REST>
-struct TLIST : TLIST<REST...>{
+
+template<typename FIRST, typename ... REST>
+struct first{
 	using type = FIRST;
-	using rest = TLIST<REST...>;
+};
+template<typename ... TS>
+struct TLIST;
+template<typename FIRST, typename ... REST>
+struct rest{
+	using type = TLIST<REST...>;
+};
+template<typename L1, typename L2>
+struct append_list;
+template<typename...A1, typename...A2>
+struct append_list<TLIST<A1...>,TLIST<A2...>> {
+	using type = TLIST<A1...,A2...>;
+};
+
+template<typename L, typename ... ARGS>
+struct reverse_list {
+	using type = typename reverse_list<
+		typename L::rest,
+		typename L::type,
+		ARGS...>::type;
+};
+template<typename ... ARGS>
+struct reverse_list<TLIST<>,ARGS...> {
+	using type = TLIST<ARGS...>;
+};
+
+template<int amount, typename L>
+struct pop_n  {
+	using type = typename pop_n<amount-1,typename L::rest>::type;
+};
+
+template<typename L>
+struct pop_n<0,L> {
+	using type = L;
+};
+
+template<typename ... TS>
+struct TLIST {
+	using type = typename first<TS...>::type;
+	using rest = typename rest<TS...>::type;
+	static constexpr auto size = sizeof...(TS);
+
+	template<typename L>
+	using append = typename append_list<TLIST<TS...>,L>::type;
+	using reverse = reverse_list<TLIST<TS...>>;
+	template<int amount>
+	using pop = pop_n<amount,TLIST<TS...>>;
+	template<typename T>
+	static constexpr bool contains = std::is_same_v<type,T> || rest::template contains<T>;
 };
 template<>
-struct TLIST<EOL> : EOL {
+struct TLIST<> {
 	using type = EOL;
 	using rest = EOL;
+	static constexpr auto size = 0;
+	template<typename L>
+	using append = L;
+	using reverse = TLIST<>;
+	template<typename>
+	static constexpr bool contains = false;
 };
 
 template<class T>
@@ -44,47 +108,12 @@ struct get_prop_tag<T> {
 	using type = typename T::ezpz_prop;
 };
 
-template<typename L, typename...ARGS>
-struct append_list_hlp {
-	using type = typename append_list_hlp<typename L::rest,ARGS...,typename L::type>::type;
-};
-template<typename ... ARGS>
-struct append_list_hlp<TLIST<EOL>,ARGS...> {
-	using type = TLIST<ARGS...>;
-};
-template<typename L1, typename L2, typename ... ARGS>
-struct append_list {
-	using type = typename append_list<typename L1::rest, L2, ARGS..., typename L1::type>::type;
-};
-template<typename L2, typename ...ARGS>
-struct append_list<TLIST<EOL>,L2,ARGS...>{
-	using type = typename append_list_hlp<L2,ARGS...>::type; 
-};
-
-/* template<typename T1, typename T2> */
-/* struct append_list; */
-
-/* template<typename ...T1, typename ...T2> */ 
-/* requires (!std::is_same_v<TLIST<T1...>,TLIST<EOL>> && !std::is_same_v<TLIST<T2...>,TLIST<EOL>>) */
-/* struct append_list<TLIST<T1...>, TLIST<T2...>> { */
-/* 	using type = TLIST<T1...,T2...>; */
-/* }; */
-/* template<typename T> */ 
-/* requires (!std::is_same_v<T,TLIST<EOL>>) */
-/* struct append_list<T,TLIST<EOL>> { */
-/* 	using type = T; */
-/* }; */
-/* template<typename T> */
-/* struct append_list<TLIST<EOL>, T> { */
-/* 	using type = T; */
-/* }; */
-
 template<template<typename...> class T, typename L, typename...ARGS>
 struct apply_list { 
 	using type = typename apply_list<T,typename L::rest,ARGS...,typename L::type>::type;
 };
 template<template<typename...> class T, typename ... ARGS>
-struct apply_list<T,TLIST<EOL>,ARGS...> {
+struct apply_list<T,TLIST<>,ARGS...> {
 	using type = T<ARGS...>;
 };
 
@@ -100,7 +129,6 @@ template<typename TRUE, typename FALSE>
 struct t_if_else<false,TRUE,FALSE> {
 	using type = FALSE;
 };
-class VOID {};
 
 template<typename T, typename L>
 struct push_list {
@@ -108,24 +136,7 @@ struct push_list {
 	using rest = L;
 };
 
-template<int amount, typename L>
-struct pop_n  {
-	using type = typename pop_n<amount-1,typename L::rest>::type;
-};
 
-template<typename L>
-struct pop_n<0,L> {
-	using type = L;
-};
-
-template<bool b, template<typename...> class C, typename...ARGS>
-struct instantiate_if {
-	using type = VOID;
-};
-template< template<typename...> class C, typename...ARGS>
-struct instantiate_if<true,C,ARGS...> : C<ARGS...> {
-	using type = C<ARGS...>;
-};
 
 template<bool b, template<typename...> class C, typename...ARGS>
 struct instantiate_if_inner {
@@ -136,18 +147,10 @@ struct instantiate_if_inner<true,C,ARGS...> : C<ARGS...> {
 	using type = typename C<ARGS...>::type;
 };
 
-template<typename L>
-struct list_size {
-	static constexpr int value = 1+list_size<typename L::rest>::value;
-};
-template<>
-struct list_size<TLIST<EOL>> {
-	static constexpr int value = 0;
-};
 template<typename L1, typename L2>
 struct select_max {
 	using type = typename t_if_else<
-		(list_size<L1>::value > list_size<L2>::value),
+		(L1::size > L2::size),
 		L1,
 		L2>::type;
 };
@@ -171,14 +174,14 @@ struct instantiate_list {
 };
 
 template<template<typename...> class C,typename ... ARGS>
-struct instantiate_list<C,TLIST<EOL>,ARGS...> {
+struct instantiate_list<C,TLIST<>,ARGS...> {
 	using type = C<ARGS...>;
 };
 
 template<typename F, typename ARGS>
 struct invoke_list_get_ret {
 	using type = typename instantiate_list<
-		std::invoke_result,typename append_list<TLIST<F>,ARGS>::type
+		std::invoke_result,typename TLIST<F>::append<ARGS>
 		>::type::type;
 };
 template<typename F, typename L, typename ... ARGS>
@@ -199,7 +202,7 @@ struct get_decay_list {
 	using type = typename get_decay_list<typename L::rest, ARGS...,typename std::decay_t<typename L::type>>::type;
 };
 template<typename ... ARGS>
-struct get_decay_list<TLIST<EOL>,ARGS...> {
+struct get_decay_list<TLIST<>,ARGS...> {
 	using type = TLIST<ARGS...>;
 };
 template<typename L, typename ... ARGS>
@@ -207,7 +210,7 @@ struct get_ref_list {
 	using type = typename get_ref_list<typename L::rest, ARGS...,typename L::type>::type;
 };
 template<typename ... ARGS>
-struct get_ref_list<TLIST<EOL>,ARGS...> {
+struct get_ref_list<TLIST<>,ARGS...> {
 	using type = TLIST<ARGS&...>;
 };
 
@@ -217,17 +220,6 @@ struct invoke_list<F,EOL,ARGS...> {
 	using ret = VOID;
 };
 
-template<typename L, typename ... ARGS>
-struct reverse_list {
-	using type = typename reverse_list<
-		typename L::rest,
-		typename L::type,
-		ARGS...>::type;
-};
-template<typename ... ARGS>
-struct reverse_list<TLIST<EOL>,ARGS...> {
-	using type = TLIST<ARGS...>;
-};
 template<typename ... ARGS>
 struct hold_normal {
 	std::tuple<ARGS...> data;
@@ -273,7 +265,7 @@ struct contains {
 				|| contains<typename L::rest,E>::value;
 };
 template<typename E>
-struct contains<TLIST<EOL>,E> {
+struct contains<TLIST<>,E> {
 	static constexpr bool value = false;
 };
 
@@ -284,13 +276,13 @@ struct remove_t {
 		t_if_else<
 			std::is_same_v<typename L::type, E>,
 			rest,
-			typename append_list<TLIST<typename L::type>,rest>::type
+			typename TLIST<typename L::type>::append<rest>
 		>::type;
 };
 
 template<typename E>
-struct remove_t<TLIST<EOL>,E> {
-	using type = TLIST<EOL>;
+struct remove_t<TLIST<>,E> {
+	using type = TLIST<>;
 };
 
 template<typename L>
@@ -299,12 +291,12 @@ struct dedup {
 	using type = typename t_if_else<
 		contains<inner,typename L::type>::value,
 		inner,
-		typename append_list<TLIST<typename L::type>,inner>::type
+		typename TLIST<typename L::type>::append<inner>
 	>::type;
 };
 template<>
-struct dedup<TLIST<EOL>> {
-	using type = TLIST<EOL>;
+struct dedup<TLIST<>> {
+	using type = TLIST<>;
 };
 template<typename T>
 constexpr bool is_variant = false;

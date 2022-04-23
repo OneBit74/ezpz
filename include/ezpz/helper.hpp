@@ -6,7 +6,7 @@ namespace ezpz{
 
 struct print_p {
 	using active = active_f;
-	using UNPARSED_LIST = TLIST<EOL>;
+	using UNPARSED_LIST = TLIST<>;
 
 	std::string_view text;
 	bool _parse(auto&){
@@ -29,7 +29,7 @@ inline struct fail_p {
 } fail;
 inline struct eoi_p {
 	using active = active_f;
-	using UNPARSED_LIST = TLIST<EOL>;
+	using UNPARSED_LIST = TLIST<>;
 
 	bool _parse(auto& ctx){
 		return ctx.done();

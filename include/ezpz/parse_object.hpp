@@ -26,7 +26,7 @@ concept rparser_invocability = context_c<context_t> &&
 	};
 template<typename P>
 concept rparser = parser<P> && requires(){
-	typename std::enable_if_t<!std::same_as<typename P::UNPARSED_LIST, TLIST<EOL>>>;
+	typename std::enable_if_t<!std::same_as<typename P::UNPARSED_LIST, TLIST<>>>;
 	requires tlist_c<typename P::UNPARSED_LIST>;
 	/* requires apply_list<rparser_invocability,append_list<TLIST<P>,typename P::UNPARSED_LIST>::type>::type; */
 	/* typename std::decay_t<P>::UNPARSED_LIST; */
@@ -63,11 +63,11 @@ template<context_c context_t, typename P, typename...ARGS>
 requires parser<std::decay_t<P>>
 bool parse(context_t& ctx, P&& p, ARGS&...args) {
 	using P_t = std::decay_t<P>;
-	static_assert(sizeof...(ARGS) == 0 || sizeof...(ARGS) == list_size<typename P_t::UNPARSED_LIST>::value,
+	static_assert(sizeof...(ARGS) == 0 || sizeof...(ARGS) == P_t::UNPARSED_LIST::size,
 			"invalid amount of arguments to ezpz::parse");
 	static_assert(sizeof...(ARGS) == 0 || std::same_as<typename get_decay_list<TLIST<ARGS...>>::type,typename P_t::UNPARSED_LIST>,
 			"wrong argument types to ezpz::parse");
-	if constexpr(sizeof...(ARGS) == 0 && list_size<typename P_t::UNPARSED_LIST>::value != 0){
+	if constexpr(sizeof...(ARGS) == 0 && P_t::UNPARSED_LIST::size != 0){
 		using hold_t = typename instantiate_list<hold_normal, typename P_t::UNPARSED_LIST>::type;
 		hold_t hold;
 		return hold.apply([&](auto&...args){
