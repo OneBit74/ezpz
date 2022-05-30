@@ -181,7 +181,7 @@ struct instantiate_list<C,TLIST<>,ARGS...> {
 template<typename F, typename ARGS>
 struct invoke_list_get_ret {
 	using type = typename instantiate_list<
-		std::invoke_result,typename TLIST<F>::append<ARGS>
+		std::invoke_result,typename TLIST<F>::template append<ARGS>
 		>::type::type;
 };
 template<typename F, typename L, typename ... ARGS>
@@ -276,7 +276,7 @@ struct remove_t {
 		t_if_else<
 			std::is_same_v<typename L::type, E>,
 			rest,
-			typename TLIST<typename L::type>::append<rest>
+			typename TLIST<typename L::type>::template append<rest>
 		>::type;
 };
 
@@ -291,7 +291,7 @@ struct dedup {
 	using type = typename t_if_else<
 		contains<inner,typename L::type>::value,
 		inner,
-		typename TLIST<typename L::type>::append<inner>
+		typename TLIST<typename L::type>::template append<inner>
 	>::type;
 };
 template<>

@@ -1,6 +1,7 @@
 #pragma once
 #include "ezpz/parse_object.hpp"
 #include <iostream>
+#include <stdexcept>
 
 namespace ezpz{
 
@@ -34,6 +35,9 @@ inline struct eoi_p {
 	bool _parse(auto& ctx){
 		return ctx.done();
 	}
+	std::string fail_msg(){
+		return "expected end of input";
+	}
 } eoi;
 
 
@@ -61,11 +65,11 @@ rparser auto capture(T&& p){
 	return capture_p<P>(std::forward<P>(p));
 }
 
-#include <stdexcept>
 struct parse_error : public std::runtime_error {
 	using std::runtime_error::runtime_error;
 	
 	parse_error() noexcept : std::runtime_error("parse error") {}
+	parse_error(std::string&& msg) noexcept : std::runtime_error(msg) {}
 	parse_error(const parse_error&) noexcept = default;
 	parse_error(parse_error&&) noexcept = default;
 };
@@ -118,7 +122,14 @@ struct must_p {
 	bool _parse(auto& ctx, auto&&...args){
 		if(!parse(ctx,p,args...)){
 			err(ctx);
-			throw parse_error();
+			std::string what = "error:";
+			if constexpr( error_context_c<std::decay_t<decltype(ctx)>> ){
+				what += " " + ctx.describePosition(ctx.getPosition());
+			}
+			if constexpr( requires(decltype(p) p){{p.fail_msg()} -> std::same_as<std::string>;}){
+				what += " " + p.fail_msg();
+			}
+			throw parse_error(what);
 		}
 		return true;
 	}

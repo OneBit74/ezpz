@@ -107,7 +107,7 @@ struct and_p {
 		TLIST<>,
 		typename RHS::UNPARSED_LIST
 	>::type;
-	using UNPARSED_LIST = typename L_ARGS::append<R_ARGS>;
+	using UNPARSED_LIST = typename L_ARGS::template append<R_ARGS>;
 	using active = active_t;
 	using ezpz_prop = typename t_if_else<
 		contains<typename get_prop_tag<LHS>::type, always_true>::value

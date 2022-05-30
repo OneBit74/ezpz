@@ -8,6 +8,8 @@
 #include <ranges>
 #include <string_view>
 namespace ezpz{
+struct text_p;
+struct text_ci_p;
  
 template<typename T>
 std::string type_name()
@@ -33,6 +35,12 @@ concept context_c = requires(T t){
 	t.token();
 	t.advance();
 	t.setPosition(t.getPosition());
+};
+template<typename T>
+concept error_context_c = requires(T t){
+	{
+		t.describePosition(t.getPosition())
+	} -> std::same_as<std::string>;
 };
 template<typename T>
 concept basic_context_c = context_c<T> && requires(T t){
@@ -96,7 +104,35 @@ public:
 	bool debug = false;
 	size_t depth = 0;
 	std::unordered_map<std::string,std::regex> regex_cache;
+	std::vector<decltype(pos)> nl_pos;
 
+	void advance(){
+		min_context::advance();
+
+		if( (nl_pos.empty() || pos > nl_pos.back()) && !done()){
+			if(token() == '\n')nl_pos.push_back(pos);
+		}
+	}
+	std::string describePosition(int pos){
+		int line, col;
+		if(nl_pos.empty()){
+			line = 1;
+			col = pos + 1;
+		} else{
+			auto iter = std::upper_bound(std::begin(nl_pos), std::end(nl_pos), pos);
+			if(iter == std::begin(nl_pos)){
+				line = 1;
+				col = pos + 1;
+			}else{
+				iter = std::prev(iter);
+				line = (iter - std::begin(nl_pos)) + 2;
+				col = pos - *iter;
+			}
+		}
+		std::ostringstream oss;
+		oss << line << ":" << col;
+		return oss.str();
+	}
 
 	inline void notify_leave(auto& parser, bool success, int prev_pos) {
 		if(!debug || is_dbg_inline(parser)){
@@ -132,6 +168,11 @@ public:
 		print_special_chars(std::string_view{input.begin()+start_pos, input.begin()+end_pos});
 		std::cout << '\"';
 		std::cout << " " << type_name<decltype(parser)>();
+		if constexpr(TLIST<ezpz::text_p,ezpz::text_ci_p>::template contains<std::decay_t<decltype(parser)>>){
+			std::cout << "(\"";
+			print_special_chars(parser.sv);
+			std::cout << "\")";
+		}
 		std::cout << std::endl;
 		indent();
 		std::cout << "          ";
