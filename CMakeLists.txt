@@ -52,5 +52,5 @@ add_executable(stest
 )
 target_link_libraries(stest ${GTEST_BOTH_LIBRARIES})
 add_dependencies(stest rapidcheck)
-target_link_libraries(stest ${rapidcheck_BINARY_DIR}/librapidcheck.a pthread)
+target_link_libraries(stest ${rapidcheck_BINARY_DIR}/librapidcheck.a pthread fmt)
 add_test(ezpz_tests stest)

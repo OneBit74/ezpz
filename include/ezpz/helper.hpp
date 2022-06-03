@@ -1,5 +1,6 @@
 #pragma once
 #include "ezpz/parse_object.hpp"
+#include <fmt/core.h>
 #include <iostream>
 #include <stdexcept>
 
@@ -67,6 +68,8 @@ rparser auto capture(T&& p){
 
 struct parse_error : public std::runtime_error {
 	using std::runtime_error::runtime_error;
+
+	std::string expression_description = "";
 	
 	parse_error() noexcept : std::runtime_error("parse error") {}
 	parse_error(std::string&& msg) noexcept : std::runtime_error(msg) {}
@@ -108,11 +111,12 @@ parser auto recover(auto&& p1, auto&& p2){
 	return recover_p<P1_t,P2_t>(std::forward<P1_t>(p1),std::forward<P2_t>(p2));
 }
 
+
 template<parser P, typename err_msg>
 struct must_p {
 	using UNPARSED_LIST = typename P::UNPARSED_LIST;
 	using active = typename P::active;
-	using ezpz_prop = TLIST<always_true>;
+	using ezpz_prop = typename get_prop_tag<P>::type;
 
 	[[no_unique_address]] P p;
 	[[no_unique_address]] err_msg err;
@@ -129,7 +133,9 @@ struct must_p {
 			if constexpr( requires(decltype(p) p){{p.fail_msg()} -> std::same_as<std::string>;}){
 				what += " " + p.fail_msg();
 			}
-			throw parse_error(what);
+			auto err = parse_error(what);
+			err.expression_description = must_info(p);
+			throw err;
 		}
 		return true;
 	}

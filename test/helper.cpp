@@ -63,22 +63,22 @@ TEST(helper,dynamic_ret){
 /* TEST(helper,eoi_fail_msg2){ */
 /* 	parse("word1 wort2",must("word1"_p+ws+"word2"_p)); */
 /* } */
-TEST(helper,eoi_fail_msg){
-	EXPECT_TRUE(parse("as","as"_p+must(eoi)));
-	EXPECT_THROW({
-		try{
-			parse("asd","as"_p+must(eoi));
-		}catch(parse_error& pe){
-			EXPECT_EQ(std::string_view{pe.what()}, std::string_view{"error: 1:3 expected end of input"});
-			throw;
-		}
-	},parse_error);
-	EXPECT_THROW({
-		try{
-			parse("as\nasd","as\nas"_p+must(eoi));
-		}catch(parse_error& pe){
-			EXPECT_EQ(std::string_view{pe.what()}, std::string_view{"error: 2:3 expected end of input"});
-			throw;
-		}
-	},parse_error);
-}
+/* TEST(helper,eoi_fail_msg){ */
+/* 	EXPECT_TRUE(parse("as","as"_p+must(eoi))); */
+/* 	EXPECT_THROW({ */
+/* 		try{ */
+/* 			parse("asd","as"_p+must(eoi)); */
+/* 		}catch(parse_error& pe){ */
+/* 			EXPECT_EQ(std::string_view{pe.what()}, std::string_view{"error: 1:3 expected end of input"}); */
+/* 			throw; */
+/* 		} */
+/* 	},parse_error); */
+/* 	EXPECT_THROW({ */
+/* 		try{ */
+/* 			parse("as\nasd","as\nas"_p+must(eoi)); */
+/* 		}catch(parse_error& pe){ */
+/* 			EXPECT_EQ(std::string_view{pe.what()}, std::string_view{"error: 2:3 expected end of input"}); */
+/* 			throw; */
+/* 		} */
+/* 	},parse_error); */
+/* } */

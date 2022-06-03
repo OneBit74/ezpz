@@ -1,4 +1,7 @@
+#pragma once
 #include "ezpz/context.hpp"
+#include "ezpz/meta.hpp"
+
 #include <iostream>
 #include <vector>
 
