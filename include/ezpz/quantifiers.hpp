@@ -10,7 +10,7 @@ parser auto plus(T&& rhs) {
 	using TT = std::decay_t<T>;
 	return make_rpo([r=std::forward<TT>(rhs)](auto& ctx) mutable {
 		if(!parse(ctx,r))return false;
-		while(parse(ctx,r)){}
+		while(parse_or_undo(ctx,r)){}
 		return true;
 	});
 }

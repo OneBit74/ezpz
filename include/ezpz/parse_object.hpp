@@ -59,6 +59,11 @@ bool parse_or_undo(context_t& ctx, P&& p, ARGS&...args) {
 		return false;
 	}
 }
+
+template<typename ctx_t, typename p_t, typename ... ARGS>
+concept parseable = requires(ctx_t& ctx, p_t& p, ARGS...args){
+	{p._parse(ctx,args...)} -> std::same_as<bool>;
+};
 template<context_c context_t, typename P, typename...ARGS> 
 requires parser<std::decay_t<P>>
 bool parse(context_t& ctx, P&& p, ARGS&...args) {
@@ -73,7 +78,13 @@ bool parse(context_t& ctx, P&& p, ARGS&...args) {
 		return hold.apply([&](auto&...args){
 			return parse(ctx,p,args...);
 		});
+	} else if constexpr(!parseable<context_t,P_t,ARGS...> && contains<typename get_prop_tag<context_t>::type,has_inner_ctx>::value){
+		return parse(ctx.get_inner_ctx(),p,args...);
 	}else{
+		/* print_types<context_t> asd; */
+		/* print_types<P_t> asd2; */
+		/* print_types<ARGS...> asd3; */
+		/* print_vals<bool, parseable<context_t,P_t,ARGS...>> asd4; */
 		if constexpr(!std::is_same_v<void,decltype(ctx.notify_enter(p))>){
 			auto msg = ctx.notify_enter(p);
 			auto ret = p._parse(ctx,args...);

@@ -2,9 +2,27 @@
 #include <tuple>
 #include <variant>
 #include <optional>
+#include <string>
+#include <cxxabi.h>
 #pragma once
 
 namespace ezpz{
+
+template<typename T>
+std::string type_name()
+{
+	std::string tname = typeid(T).name();
+	#if defined(__clang__) || defined(__GNUG__)
+	int status;
+	char *demangled_name = abi::__cxa_demangle(tname.c_str(), NULL, NULL, &status);
+	if(status == 0)
+	{
+		tname = demangled_name;
+		std::free(demangled_name);
+	}
+	#endif
+	return tname;
+}
 
 template<typename ... ARGS>
 struct  print_types;
@@ -17,6 +35,10 @@ struct active_t;
 struct active_f;
 struct always_true;
 struct always_false;
+
+// context properties
+struct is_recover_ctx;
+struct has_inner_ctx;
 
 template<bool b, template<typename...> class C, typename...ARGS>
 struct instantiate_if {

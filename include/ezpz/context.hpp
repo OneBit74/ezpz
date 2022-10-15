@@ -3,29 +3,14 @@
 #include <unordered_map>
 #include <regex>
 #include <iostream>
-#include <cxxabi.h>
 #include <cassert>
 #include <ranges>
 #include <string_view>
+#include "fmt/core.h"
 namespace ezpz{
 	struct text_p;
 	struct text_ci_p;
-	 
-	template<typename T>
-	std::string type_name()
-	{
-		std::string tname = typeid(T).name();
-		#if defined(__clang__) || defined(__GNUG__)
-		int status;
-		char *demangled_name = abi::__cxa_demangle(tname.c_str(), NULL, NULL, &status);
-		if(status == 0)
-		{
-			tname = demangled_name;
-			std::free(demangled_name);
-		}
-		#endif
-		return tname;
-	}
+
 	 
 	template<typename T>
 	concept context_c = requires(T t){
@@ -105,6 +90,7 @@ namespace ezpz{
 		size_t depth = 0;
 		std::unordered_map<std::string,std::regex> regex_cache;
 		std::vector<decltype(pos)> nl_pos;
+		bool error_mode = false;
 
 		void advance(){
 			min_context::advance();
@@ -113,7 +99,7 @@ namespace ezpz{
 				if(token() == '\n')nl_pos.push_back(pos);
 			}
 		}
-		std::string describePosition(int pos){
+		std::pair<int,int> getLineCol(int pos){
 			int line, col;
 			if(nl_pos.empty()){
 				line = 1;
@@ -129,28 +115,40 @@ namespace ezpz{
 					col = pos - *iter;
 				}
 			}
+			return {line,col};
+		}
+		std::string describePosition(int pos, int end_pos){
+			assert((size_t)pos <= input.size());
+			assert((size_t)end_pos <= input.size());
 
+			auto [line,col] = getLineCol(pos);
 			std::ostringstream oss;
-			oss << line << ":" << col;
-			oss << '\n';
 			size_t cur = pos-col+1;
 			while(cur < input.size() && input[cur] != '\n'){
 				oss << input[cur];
 				++cur;
 			}
 			oss << '\n';
-			for(int i = 0; i < col; ++i) oss << ' ';
+			for(int i = 0; i < col-1; ++i) oss << ' ';
 			oss << '^';
+			for(int i = 1; i < end_pos - pos; ++i){
+				if(input[i+pos] == '\n')oss << '\n';
+				oss << '~';
+			}
 			return oss.str();
 		}
 
+		static constexpr int lo = 14;
+		static constexpr size_t ro = 7;
 		inline void notify_leave(auto& parser, bool success, int prev_pos) {
 			if(!debug || is_dbg_inline(parser)){
 				return;
 			}
 
 			depth--;
-			indent();
+			for(int i = 0; i < indent(); ++i){
+				std::cout << ' ';
+			}
 			if(!success){
 				std::cout << "failed ";
 			}else{
@@ -168,15 +166,16 @@ namespace ezpz{
 				return 0;
 			}
 
-			indent();
-			std::cout << "starting ";
-			constexpr int lo = 7;
-			constexpr size_t ro = 7;
-			auto start_pos = std::max(0,int(pos)-lo);
-			auto end_pos = std::min(input.size(),pos+ro);
+			int start_pos = std::max(0,int(pos)-lo);
+			int end_pos = std::min(input.size(),pos+ro);
 			std::cout << '\"';
 			print_special_chars(std::string_view{input.begin()+start_pos, input.begin()+end_pos});
 			std::cout << '\"';
+
+			for(int i = 0; i < indent()-(2+end_pos-start_pos); ++i){
+				std::cout << ' ';
+			}
+			std::cout << "starting ";
 			std::cout << " " << type_name<decltype(parser)>();
 			if constexpr(TLIST<ezpz::text_p,ezpz::text_ci_p>::template contains<std::decay_t<decltype(parser)>>){
 				std::cout << "(\"";
@@ -184,18 +183,57 @@ namespace ezpz{
 				std::cout << "\")";
 			}
 			std::cout << std::endl;
-			indent();
-			std::cout << "          ";
-			for(size_t i = start_pos; i <= end_pos; ++i){
-				std::cout << (i == pos ? '^' : ' ');
+			/* std::cout << "          "; */
+			std::cout << ' ';
+			for(int i = start_pos; i <= end_pos; ++i){
+				std::cout << (i == (int)pos ? '^' : ' ');
 			}
 			std::cout << std::endl;
 			depth++;
 
 			return pos;
 		}
-		inline void indent() const {
-			for(size_t i = 0; i < depth; ++i)std::cout << '\t';
+		inline int indent() const {
+			return depth*5 + lo + ro + 4;
+		}
+
+		std::optional<std::string> resource_name;
+		void error(auto& candidates){
+			error_mode = true;
+			if(!candidates.empty()){
+				pos = candidates[0].start_pos;
+			}
+			auto [line,col] = getLineCol(pos);
+			if(resource_name)fmt::print("{}:",*resource_name);
+
+			fmt::print("{: >3}:{: >2} ", line, col);
+
+			if(candidates.size() == 1)fmt::print("expected ");
+			else if(candidates.size() > 1)fmt::print("did you mean ");
+
+			for(size_t i = 0; i < candidates.size(); ++i){
+				if(i > 0)fmt::print(", ");
+				/* fmt::print("{}", candidates[i].parser_description); */
+				if(candidates[i].parser_description.size() == 1){
+					fmt::print("\'");
+				}else{
+					fmt::print("\"");
+				}
+				print_special_chars(candidates[i].parser_description);
+				if(candidates[i].parser_description.size() == 1){
+					fmt::print("\'");
+				}else{
+					fmt::print("\"");
+				}
+			}
+			int start_pos = getPosition();
+			int end_pos = getPosition();
+			if(!candidates.empty()){
+				start_pos = candidates[0].start_pos;
+				end_pos = candidates[0].end_pos;
+			}
+
+			fmt::print("\n{}\n", describePosition(start_pos, end_pos));
 		}
 	};
 
@@ -208,6 +246,8 @@ namespace ezpz{
 		iterator start;
 		end_iterator end;
 		iterator cur;
+
+		bool error_mode = false;
 
 		forward_range_context(auto&& range_p) : range(std::forward<R>(range_p)), start(std::begin(range)), end(std::end(range)), cur(std::begin(range)) {}
 
@@ -238,6 +278,9 @@ namespace ezpz{
 
 			return oss.str();
 		}
+		void error(auto&&) {
+			error_mode = true;
+		}
 
 		
 		void notify_enter(auto&) {}
@@ -249,4 +292,17 @@ namespace ezpz{
 		};
 	};
 
+	template<typename T>
+	struct basic_debug_context {
+
+	};
+
+	inline void print_range(auto& ctx, auto from, auto to){
+		auto prev = ctx.getPosition();
+		ctx.setPosition(from);
+		while(ctx.getPosition() != to){
+			std::cout << ctx.token();
+		}
+		ctx.setPosition(prev);
+	}
 }

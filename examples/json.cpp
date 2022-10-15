@@ -18,17 +18,17 @@ int main(){
 	auto string = "\""_p + any(
 			  (notf("\""_p) + notf("\\") + single)
 			| ("\\" + ("\""_p | "\\" | "/" | "b" | "f" | "n" | "r" | "t" | ("u"+hex+hex+hex+hex)))
-			) + "\"";
+			) + recover("\""_p);
 
 	polymorphic_rpo<ctx_t> value;
 	auto value_r = ref(value);
 	auto element = ws + value_r + ws;
 	auto elements = element+any(","_p+element);
-	auto array = "["_p + (elements | whitespace) + "]";
-	auto member = whitespace + string + whitespace + ":" + element;
+	auto array = "["_p + (elements | whitespace) + recover("]"_p);
+	auto member = whitespace + string + whitespace + recover(":"_p) + element;
 	auto members = member + any(","+member);
-	auto object = "{"_p + (members | whitespace) + "}";
-	auto value_impl = make_poly<ctx_t>(whitespace + (string | number | object | array | "true" | "false" | "null") + whitespace);
+	auto object = "{"_p + (members | whitespace) + recover("}"_p);
+	auto value_impl = make_poly<ctx_t>(recover(whitespace + (string | number | object | array | "true" | "false" | "null") + whitespace));
 	value = value_impl;
 
 	auto json = element;
@@ -36,4 +36,5 @@ int main(){
 	std::cout << parse("{\"hey\":\"i'm json\"}",json+eoi) << std::endl;
 	std::cout << parse("[1,2,3,4]",json+eoi) << std::endl;
 	std::cout << parse("not json",json+eoi) << std::endl;
+	std::cout << parse("[1,2, asd ]",json+eoi) << std::endl;
 }

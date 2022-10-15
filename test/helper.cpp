@@ -1,22 +1,50 @@
 #include "ezpz/ezpz.hpp"
 #include <gtest/gtest.h>
+#include "gmock/gmock.h"  // Brings in gMock.
 using namespace ezpz;
 
 TEST(helper,must){
 	EXPECT_TRUE(parse("abc", must("abc"_p)));
 	EXPECT_THROW(parse("def", must("abc"_p)), parse_error);
 }
+class mock_basic_context : public basic_context {
+public:
+	using basic_context::basic_context;
+	virtual void error_mock(){}
+	void error(auto& p){
+		basic_context::error(p);
+		error_mock();
+	}
+};
+class mockmock_basic_context : public mock_basic_context {
+public:
+	using mock_basic_context::mock_basic_context;
+	MOCK_METHOD(void, error_mock, ());
+};
 TEST(helper,recover){
-	auto p = recover("bbb"_p,"aaa"_p);
-	EXPECT_TRUE(parse("aaa", p));
-	EXPECT_TRUE(parse("bbb", p));
-	EXPECT_FALSE(parse("ccc", p));
+	mockmock_basic_context ctx("a");
+	EXPECT_CALL(ctx,error_mock()).Times(1);
+	EXPECT_TRUE(parse(ctx,recover("b"_p)));
+	parse("aa",recover("ab"_p | "aab"_p));
 
-	int val = 0;
-	auto p2 = recover(decimal<int>,"a"+!decimal<int>)*assign(val);
-	EXPECT_TRUE(parse("a256",p2));
-	EXPECT_EQ(val,256);
+	auto p = "hallo "_p + recover("du "_p + "da"_p);
+	EXPECT_TRUE(parse("hallo da da",p));
+	EXPECT_TRUE(parse("hallo du du",p));
+	EXPECT_TRUE(parse("hallo du da",p));
+	EXPECT_TRUE(parse("hallo du da\nhallo du der",any(p+optional("\n"_p))));
+	EXPECT_TRUE(parse("hallo ",p));
 }
+/* TEST(helper,recover){ */
+/* 	auto p = recover("bbb"_p,"aaa"_p); */
+/* 	EXPECT_TRUE(parse("aaa", p)); */
+/* 	EXPECT_TRUE(parse("bbb", p)); */
+/* 	EXPECT_FALSE(parse("ccc", p)); */
+
+/* 	int val = 0; */
+/* 	auto p2 = recover(decimal<int>,"a"+!decimal<int>)*assign(val); */
+/* 	EXPECT_TRUE(parse("a256",p2)); */
+/* 	EXPECT_EQ(val,256); */
+/* } */
 TEST(helper,fail){
 	EXPECT_FALSE(parse("abdsd",fail));
 	EXPECT_FALSE(parse("8392842",fail));

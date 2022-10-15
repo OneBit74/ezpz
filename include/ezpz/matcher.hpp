@@ -23,6 +23,9 @@ namespace ezpz{
 			}
 			return true;
 		}
+		inline auto _description(){
+			return sv;
+		}
 	};
 	template<typename F> requires std::is_invocable_r_v<std::string_view,F>
 	struct fast_text_p {
@@ -42,6 +45,9 @@ namespace ezpz{
 			}
 			return true;
 		}
+		inline auto _description(){
+			return f();
+		}
 	};
 
 	struct text_ci_p {
@@ -60,6 +66,10 @@ namespace ezpz{
 			}
 			return true;
 		}
+
+		inline auto _description() {
+			return sv;
+		}
 	};
 
 	struct text_p {
@@ -77,6 +87,9 @@ namespace ezpz{
 				ctx.advance();
 			}
 			return true;
+		}
+		auto _description(){
+			return sv;
 		}
 	};
 	auto fast_text(auto&& f){
@@ -138,6 +151,7 @@ namespace ezpz{
 		using active = active_f;
 		using UNPARSED_LIST = TLIST<>;
 
+		static constexpr auto _description = "whitespace";
 		inline bool _parse(basic_context_c auto& ctx){
 			while(!ctx.done()){
 				switch(ctx.token()){
@@ -158,7 +172,7 @@ namespace ezpz{
 		if(ctx.done())return false;
 		if(std::isdigit(ctx.token())){
 			ret = ctx.token();
-			++ctx.pos;
+			ctx.advance();
 			return true;
 		}
 		return false;
@@ -166,7 +180,7 @@ namespace ezpz{
 	inline parser auto graph_letter = make_rpo([](auto& ctx){
 		if(ctx.done())return false;
 		if(std::isgraph(ctx.token())){
-			++ctx.pos;
+			ctx.advance();
 			return true;
 		}
 		return false;
@@ -181,6 +195,8 @@ namespace ezpz{
 		static_assert(base <= 10);
 		static_assert(base >= 2);
 		
+		static constexpr auto _description = "number";
+
 		bool _parse(basic_context_c auto& ctx, num_t& ret) {
 			if(ctx.done())return false;
 			bool negative = false;
@@ -200,14 +216,14 @@ namespace ezpz{
 			if(invalid)return false;
 			if constexpr(std::floating_point<num_t>){
 				if(!ctx.done() && ctx.token() == '.'){
-					++ctx.pos;
+					ctx.advance();
 					invalid = true;
 					num_t alpha = 1;
 					while(!ctx.done() && std::isdigit(ctx.token())){
 						invalid = false;
 						alpha /= base;
 						ret += (ctx.token()-'0')*alpha;
-						++ctx.pos;
+						ctx.advance();
 					}
 					if(invalid)return false;
 				}
@@ -230,6 +246,7 @@ namespace ezpz{
 		using active = active_f;
 		using UNPARSED_LIST = TLIST<char>;
 
+		static constexpr auto _description = "alphabetic character";
 		bool _parse(basic_context_c auto& ctx, char& c){
 			if(ctx.done())return false;
 			c = ctx.token();
@@ -301,7 +318,7 @@ namespace ezpz{
 	}
 
 	inline auto regex(std::string_view pattern){
-		return make_rpo<std::string_view>([=](basic_context_c auto& ctx, std::string_view& output){
+		return make_rpo<std::string_view>([=](basic_context& ctx, std::string_view& output){
 			const std::string str{pattern};
 			auto [regex_iter,b] = ctx.regex_cache.try_emplace(str,str);
 			std::match_results<std::string_view::const_iterator> match;
@@ -318,9 +335,6 @@ namespace ezpz{
 		});
 	}
 
-}
-namespace ezpz {
-
 	template<template<typename...> class, typename...>
 	constexpr bool is_instantiation = false;
 
@@ -329,41 +343,14 @@ namespace ezpz {
 
 	static_assert(is_instantiation<consume_p, decltype(""_p*[](){})>);
 
-	template<typename T>
-	inline auto must_info(T&){
-		return "NA";
-	}
-
-	template<typename T> requires is_instantiation<must_p,T>
-	inline auto must_info(T& p){
-		return must_info(p.p);
-	}
-	template<typename T> requires is_instantiation<consume_p,T>
-	inline auto must_info(T& p){
-		return must_info(p.parent);
-	}
-	template<>
-	inline auto must_info(std::string_view& sv){
-		return fmt::format("\"{}\"",sv);
-	}
-	template<typename T>
-	inline auto must_info(token_eq_p<T>& p){
-		return must_info(p.token);
-	}
-	template<>
-	inline auto must_info(text_p& p){
-		return must_info(p.sv);
-	}
-	template<typename L, typename R>
-	inline auto must_info(or_p<L,R>& p){
-		return
-			fmt::format("{} | {}",
-				must_info(p.p1.get()),
-				must_info(p.p2.get())
-			);
-	}
-	template<typename L, typename R>
-	inline auto must_info(and_p<L,R>& p){
-		return must_info(p.lhs.get());
+	template<parser P>
+	inline auto description(P& p){
+		if constexpr(requires(){P::_description;}) {
+			return p._description;
+		}else if constexpr(requires(P p){p._description();}) {
+			return p._description();
+		}else {
+			return type_name<P>();
+		}
 	}
 }

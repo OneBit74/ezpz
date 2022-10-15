@@ -51,9 +51,14 @@ struct capture_p {
 	capture_p(P&& op) : parent(std::move(op)) {}
 	capture_p(const P& op) : parent(op) {}
 	bool _parse(auto& ctx, std::string_view& sv){
-		auto start = ctx.pos;
+		auto start = ctx.getPosition();
 		auto ret = parse(ctx,parent);
-		sv = std::string_view{ctx.input.data()+start,ctx.pos-start};
+		auto length = static_cast<long unsigned int>(ctx.getPosition()-start);
+		if constexpr(contains<typename get_prop_tag<std::decay_t<decltype(ctx)>>::type, is_recover_ctx>::value){
+			sv = std::string_view{ctx.get_inner_ctx().input.data()+start,length};
+		} else {
+			sv = std::string_view{ctx.input.data()+start,length};
+		}
 		return ret;
 	}
 	bool dbg_inline(){
@@ -77,20 +82,179 @@ struct parse_error : public std::runtime_error {
 	parse_error(parse_error&&) noexcept = default;
 };
 
-template<parser P1, parser P2>
+template<typename ctx_t, typename visitor_t>
+struct recover_ctx {
+	using ezpz_prop = TLIST<is_recover_ctx,has_inner_ctx>;
+	ctx_t* ctx;
+	visitor_t visitor;
+	auto& get_inner_ctx(){
+		return *ctx;
+	}
+
+	recover_ctx(ctx_t* ctx, auto&& visitor) 
+		: ctx(ctx)
+		, visitor(std::forward<visitor_t>(visitor))
+	{}
+
+	void advance(){
+		ctx->advance();
+	}
+	bool done(){
+		return ctx->done();
+	}
+	auto token(){
+		return ctx->token();
+	}
+	auto getPosition(){
+		return ctx->getPosition();
+	}
+	void setPosition(decltype(ctx->getPosition()) pos){
+		ctx->setPosition(pos);
+	}
+
+
+	int level = 0;
+	int last_level = 0;
+	auto notify_enter(auto&) {
+		++level;
+		last_level = level;
+		return ctx->getPosition();
+	}
+	void notify_leave(auto& parser, bool success, auto prev_pos){
+		if(last_level == level && !success){
+			visitor(*ctx,parser,prev_pos);
+		}
+		--level;
+	}
+};
+
+namespace highlight_strategy {
+	struct start_of_recover;
+	struct at_failure_parser;
+	struct at_last_token_position;
+}
+namespace continuation_strategy {
+	struct start_of_recover;
+	struct at_failure_parser;
+	struct after_secondary_parser;
+}
+struct recover_default_config {
+	using highlight_strategy = highlight_strategy::at_failure_parser;
+	using continuation_strategy = continuation_strategy::after_secondary_parser;
+	static int match(auto& ctx, auto&, auto prev_pos){
+		return ctx.getPosition()-prev_pos;
+	}
+	static bool keep(int, int){
+		return true;
+	}
+	static void perform_secondary_parse(auto& ctx){
+		if constexpr (std::same_as<decltype(ctx.token()),char>){
+			while(!ctx.done() && ctx.token() != ' ' && ctx.token() != '\t')
+				ctx.advance();
+		}
+	}
+
+};
+template<parser P, typename recover_config>
 struct recover_p {
+	static_assert(! contains<typename get_prop_tag<P>::type, always_true>::value,
+			"recovering from a parser that never fails does not make sense");
+	using UNPARSED_LIST = typename P::UNPARSED_LIST;
+	using active = typename P::active;
+	using ezpz_prop = TLIST<always_true>;
+
+	[[no_unique_address]] P p;
+
+	recover_p(auto&& p) : p(std::forward<P>(p)) {}
+
+	bool _parse(auto& ctx, auto&...args){
+		constexpr bool nested_recover = contains<typename get_prop_tag<std::decay_t<decltype(ctx)>>::type, is_recover_ctx>::value;
+		bool success;
+		if constexpr(nested_recover){
+			success = parse_or_undo(*ctx.ctx,p,args...);
+		}else{
+			success = parse_or_undo(ctx,p,args...);
+		}
+		if(!success){
+			auto recover_start_pos = ctx.getPosition();
+			/* ctx.error_missing(p); */
+
+			int max_goodness = 0;
+			struct candidate {
+				std::string parser_description;
+				int goodness;
+				decltype(ctx.getPosition()) start_pos, end_pos;
+			};
+			std::vector<candidate> candidates;
+			auto cb = [&](auto& ctx, auto& parser, auto prev_pos){
+				int goodness = recover_config::match(ctx,parser,prev_pos);
+				if(goodness >= max_goodness){
+					max_goodness = goodness;
+				}
+
+				using hls = recover_config::highlight_strategy;
+				if constexpr (std::same_as<hls,highlight_strategy::start_of_recover>){
+					prev_pos = recover_start_pos;
+				} else if constexpr( std::same_as<hls,highlight_strategy::at_last_token_position>){
+					prev_pos = ctx.getPosition();
+				}
+				auto prev = ctx.getPosition();
+				recover_config::perform_secondary_parse(ctx);
+
+				candidates.emplace_back(std::string{description(parser)},goodness, prev_pos, ctx.getPosition());
+				ctx.setPosition(prev);
+			};
+			if constexpr(nested_recover){
+				recover_ctx<std::decay_t<decltype(*ctx.ctx)>, decltype(cb)> rctx(ctx.ctx,cb);
+				parse_or_undo(rctx, p);
+			}else{
+				recover_ctx<std::decay_t<decltype(ctx)>, decltype(cb)> rctx(&ctx,cb);
+				parse_or_undo(rctx, p);
+			}
+
+			for(size_t i = 0; i < candidates.size(); ++i){
+				if(!recover_config::keep(max_goodness, candidates[i].goodness)){
+					std::swap(candidates[i],candidates.back());
+					candidates.pop_back();
+				}
+			}
+
+			//TODO sort candidates
+			if constexpr(!nested_recover){
+				ctx.error(candidates);
+			}
+
+			using cos = recover_config::continuation_strategy;
+			using namespace continuation_strategy;
+			if constexpr(std::same_as<cos,start_of_recover>){
+				ctx.setPosition(recover_start_pos);
+			}else if constexpr(std::same_as<cos,at_failure_parser>){
+				if(!candidates.empty()){
+					ctx.setPosition(candidates[0].start_pos);
+				}
+			} else if constexpr(std::same_as<cos,after_secondary_parser>){
+				if(!candidates.empty()){
+					ctx.setPosition(candidates[0].end_pos);
+				}
+			}
+		}
+		return true;
+	}
+};
+template<parser P1, parser P2>
+struct recover_and_else_p {
 	using UNPARSED_LIST = typename t_if_else<
 		std::same_as<typename P1::UNPARSED_LIST, typename P2::UNPARSED_LIST>,
 		typename P1::UNPARSED_LIST,
 		TLIST<>
 	>::type;
 	using active = active_f;
-	using ezpz_prop = TLIST<always_true>;
+	using ezpz_prop = TLIST<>;
 
 	[[no_unique_address]] P1 p1;
 	[[no_unique_address]] P2 p2;
 
-	recover_p(auto&& p1, auto&& p2) : p1(std::forward<P1>(p1)), p2(std::forward<P2>(p2)) {}
+	recover_and_else_p(auto&& p1, auto&& p2) : p1(std::forward<P1>(p1)), p2(std::forward<P2>(p2)) {}
 
 	bool _parse(auto& ctx,auto&...args) {
 		auto start = ctx.getPosition();
@@ -105,11 +269,19 @@ struct recover_p {
 		return parse(ctx,p2,args...);
 	}
 };
-parser auto recover(auto&& p1, auto&& p2){
-	using P1_t = std::decay_t<decltype(p1)>;
-	using P2_t = std::decay_t<decltype(p2)>;
-	return recover_p<P1_t,P2_t>(std::forward<P1_t>(p1),std::forward<P2_t>(p2));
-}
+template<typename recover_config>
+struct recover_t {
+	auto operator()(auto&& p1){
+		using P1_t = std::decay_t<decltype(p1)>;
+		return recover_p<P1_t, recover_config>(std::forward<P1_t>(p1));
+	}
+};
+inline recover_t<recover_default_config> recover;
+
+/* parser auto recover(auto&& p1){ */
+/* 	using P1_t = std::decay_t<decltype(p1)>; */
+/* 	return recover_p<P1_t>(std::forward<P1_t>(p1)); */
+/* } */
 
 
 template<parser P, typename err_msg>
@@ -134,7 +306,7 @@ struct must_p {
 				what += " " + p.fail_msg();
 			}
 			auto err = parse_error(what);
-			err.expression_description = must_info(p);
+			err.expression_description = description(p);
 			throw err;
 		}
 		return true;

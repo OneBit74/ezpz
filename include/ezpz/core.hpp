@@ -420,13 +420,14 @@ auto operator*(P&& p, F&& unparser)
 requires (!std::is_function_v<std::remove_pointer_t<std::decay_t<F>>>)
 {
 	using P_t = std::decay_t<P>;
-	using invoke_info = invoke_list<F,typename P_t::UNPARSED_LIST>;
+	using F_t = std::decay_t<F>;
+	using invoke_info = invoke_list<F_t,typename P_t::UNPARSED_LIST>;
 	using invoke_args = typename invoke_info::args;
 	/* print_types<typename P::UNPARSED_LIST,invoke_args> asd; */
 	static constexpr bool callable = !std::is_same_v<invoke_args,VOID>;
 	if constexpr(!callable){
 		static constexpr bool not_ref_callable = std::is_same_v<
-			invoke_list<F,typename get_ref_list<
+			invoke_list<F_t,typename get_ref_list<
 					typename P_t::UNPARSED_LIST
 				>::type
 			>,
@@ -437,7 +438,6 @@ requires (!std::is_function_v<std::remove_pointer_t<std::decay_t<F>>>)
 	static_assert(callable,"unparser callback is not callable by any of the available values");
 	using remaining_types = 
 		typename pop_n<invoke_args::size,typename P_t::UNPARSED_LIST>::type;
-	using F_t = std::decay_t<F>;
 	using F_TYPE = f_wrapper<F_t,typename invoke_info::ret,typename invoke_info::args>;
 	if constexpr (!std::is_same_v<typename invoke_info::ret,void> && !std::is_same_v<typename invoke_info::ret,VOID>){
 		using ret_args = 
@@ -474,7 +474,16 @@ struct fr_parser_t {
 
 	F_TYPE fds;
 	fr_parser_t(F_TYPE&& fds) : fds(std::forward<F_TYPE>(fds)) {};
-	bool _parse(auto& ctx, ARGS&...args){
+	bool _parse(auto& ctx, ARGS&...args) requires 
+		requires(decltype(ctx) c, decltype(fds) f, ARGS&...as)
+			{
+				{f(c,as...)} -> std::same_as<bool>;
+			} ||
+		requires(decltype(ctx) c, decltype(*this) self,  decltype(fds) f, ARGS&...as)
+			{
+				{f(c,self,as...)} -> std::same_as<bool>;
+			}
+	{
 		if constexpr (requires(decltype(ctx) ctx, decltype(*this) self, ARGS...args){fds(ctx,self,args...);}){
 			return fds(ctx,*this,args...);
 		}else{

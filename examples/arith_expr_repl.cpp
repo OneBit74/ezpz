@@ -14,7 +14,7 @@ int main(){
 				std::cout << ret << " " << op << " " << next << " = " << operation(ret,next) << std::endl;
 				ret = operation(ret,next);
 			};
-			return parse(ctx,!upper+ws+(any(op+ws+ref(upper)*aggregate)),ret);
+			return parse(ctx,!upper+ws+(any(op+ws+recover(ref(upper))*aggregate)),ret);
 		});
 	};
 	polymorphic_rpo<ctx_t,num_t> base;
@@ -45,9 +45,9 @@ int main(){
 		| ( EZPZ_STRING("abs(")+!(ref(expr)*[](auto val){return std::abs(val);})+EZPZ_STRING(")") )
 		| ( EZPZ_STRING("sqrt(")+!(ref(expr)*[](auto val){return (num_t)(std::sqrt(val));})+EZPZ_STRING(")") )
 		;
-	auto base_impl = make_poly<ctx_t,num_t>(
+	auto base_impl = make_poly<ctx_t,num_t>(recover(
 		  ("-"+ws+!(ref(base)*std::negate<num_t>()))
-		| ("("+ws+!ref(expr)+ws+")")
+		| ("("+ws+!recover(ref(expr)+ws+")"))
 		| !decimal<num_t>
 		| !("pi"_p*ret<std::numbers::pi_v<num_t>>)
 		| !("e"_p*ret<std::numbers::e_v<num_t>>)
@@ -58,7 +58,7 @@ int main(){
 			auto ret =  store[std::string{id}];
 			std::cout << "loading " << id << " with " << ret << std::endl;
 			return ret;
-		}))
+		})))
 		;
 	base = base_impl;
 
@@ -73,6 +73,9 @@ int main(){
 		if(std::cin.eof())break;
 		ctx_t ctx(line);
 
-		parse(ctx,(assignment | ((!expr+eoi)*[&](auto val){store["%"] = val; std::cout << val << std::endl;}) | print("error")));
+		parse(ctx,recover(
+					assignment 
+				| ((!expr+eoi)*[&](auto val){store["%"] = val; std::cout << val << std::endl;}) 
+		));
 	}
 }
