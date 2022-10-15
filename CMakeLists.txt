@@ -33,6 +33,8 @@ link_libraries(fmt)
 
 include_directories(include)
 
+add_executable(tutorial examples/tutorial.cpp)
+
 add_executable(expr1 examples/expr_v1.cpp)
 add_executable(expr2 examples/arith_expr_repl.cpp)
 
@@ -52,6 +54,7 @@ add_executable(stest
 	test/context.cpp
 )
 target_link_libraries(stest ${GTEST_BOTH_LIBRARIES} GTest::gmock)
+target_link_libraries(tutorial ${GTEST_BOTH_LIBRARIES})
 add_dependencies(stest rapidcheck)
 target_link_libraries(stest ${rapidcheck_BINARY_DIR}/librapidcheck.a pthread)
 add_test(ezpz_tests stest)
