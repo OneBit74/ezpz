@@ -29,6 +29,7 @@ set(CMAKE_CXX_STANDARD 20)
 
 link_libraries(ubsan)
 link_libraries(fmt)
+link_libraries(pthread)
 
 
 include_directories(include)
@@ -53,8 +54,8 @@ add_executable(stest
 	test/core.cpp
 	test/context.cpp
 )
-target_link_libraries(stest ${GTEST_BOTH_LIBRARIES} GTest::gmock)
+target_link_libraries(stest ${GTEST_BOTH_LIBRARIES} gmock)
 target_link_libraries(tutorial ${GTEST_BOTH_LIBRARIES})
 add_dependencies(stest rapidcheck)
-target_link_libraries(stest ${rapidcheck_BINARY_DIR}/librapidcheck.a pthread)
+target_link_libraries(stest ${rapidcheck_BINARY_DIR}/librapidcheck.a)
 add_test(ezpz_tests stest)
