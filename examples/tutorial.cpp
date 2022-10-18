@@ -152,6 +152,14 @@ int main(){
 		EXPECT_TRUE(parse("a","a" + recover("bc"_p)));
 		// outputs something like "expected 'bc'"
 		// and continues the parsing
+
+		EXPECT_TRUE(parse("",recover("a"_p+"b"_p))); // expected a
+		EXPECT_TRUE(parse("a",recover("a"_p+"b"_p))); // expected b
+		EXPECT_TRUE(parse("ab",recover("a"_p+"b"_p)));
+
+		EXPECT_TRUE(parse("",recover("a"_p | "b"_p))); // expected a or b
+		EXPECT_TRUE(parse("a",recover("a"_p | "b"_p)));
+		EXPECT_TRUE(parse("b",recover("a"_p | "b"_p)));
 	}
 
 }
