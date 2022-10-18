@@ -19,7 +19,6 @@ template<parser P, std::invocable VAL_F, typename AGG_F>
 struct agg_any_p {
 	using RET = std::invoke_result_t<VAL_F>;
 	using UNPARSED_LIST = TLIST<RET>;
-	using active = active_t;
 	
 	[[no_unique_address]] P p;
 	[[no_unique_address]] VAL_F v;
@@ -67,7 +66,6 @@ template<parser T>
 struct any_p {
 	using UNPARSED_LIST = TLIST<>;
 	using INNER_RET = typename T::UNPARSED_LIST;
-	using active = active_f;
 	using ezpz_prop = TLIST<always_true>;
 
 	static_assert(!get_prop_tag<T>::type::template contains<always_true>,
@@ -115,7 +113,6 @@ parser auto any(T&& rhs) {
 template<typename P>
 struct not_p {
 	using UNPARSED_LIST = TLIST<>;
-	using active = active_f;
 	using ezpz_prop = typename t_if_else<
 		contains<typename get_prop_tag<P>::type, always_true>::value,
 		TLIST<always_false>,
@@ -146,7 +143,6 @@ parser auto notf(T&& rhs) requires parser<std::decay_t<T>>{
 /* 		  TLIST<>, */
 /* 		  apply_list<std::optional,P::UNPARSED_LIST>::type */
 /* 	>::type; */
-/* 	using active = P::active; */
 /* 	using ezpz_prop = TLIST<always_true>; */
 
 /* 	[[no_unique_address]] P p; */
@@ -164,7 +160,6 @@ parser auto optional(T&& rhs) {
 template<parser T>
 struct peek_p {
 	using UNPARSED_LIST = typename T::UNPARSED_LIST; 
-	using active = typename T::active; 
 	using ezpz_prop = typename get_prop_tag<T>::type;
 
 	T p;
@@ -209,7 +204,6 @@ template<parser P, typename count_f_t>
 struct max_p_impl {
 	using UNPARSED_LIST = TLIST<>;
 	using INNER_RET = typename P::UNPARSED_LIST;
-	using active = active_f;
 
 	[[no_unique_address]] P p;
 	[[no_unique_address]] count_f_t count_f;
@@ -269,7 +263,6 @@ template<parser P, typename count_f_t>
 struct min_p_impl {
 	using UNPARSED_LIST = TLIST<>;
 	using INNER_RET = typename P::UNPARSED_LIST;
-	using active = active_f;
 
 	[[no_unique_address]] P p;
 	[[no_unique_address]] count_f_t count_f;
@@ -326,7 +319,6 @@ template<typename P, typename V, typename A>
 struct reduce_p {
 	using RET = std::invoke_result_t<V>;
 	using UNPARSED_LIST = TLIST<RET>;
-	using active = active_f;
 	using ezpz_prop = typename get_prop_tag<P>::type;
 
 	static_assert(!std::same_as<TLIST<>,typename P::INNER_RET>, "[ezpz][reduce_p] no return values available to aggregate over");

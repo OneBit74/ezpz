@@ -14,7 +14,7 @@ TEST(consumer,insert){
 	EXPECT_EQ(vec[0],123);
 
 	std::map<int,int> mop;
-	ASSERT_TRUE(parse("123 456",(!decimal<int>+ws+!decimal<int>) * insert(mop)));
+	ASSERT_TRUE(parse("123 456",(decimal<int>+ws+decimal<int>) * insert(mop)));
 
 	EXPECT_EQ(mop.size(),1);
 	EXPECT_EQ(mop[123],456);
@@ -29,7 +29,7 @@ TEST(consumer,compress){
 	struct Foo {
 		int a = 0, b = 0;
 	} target;
-	auto foo_p = (!decimal<int>+" "_p+!decimal<int>)*compress<Foo>;
+	auto foo_p = (decimal<int>+" "_p+decimal<int>)*compress<Foo>;
 
 	EXPECT_TRUE(parse("1 2",foo_p,target));
 	EXPECT_EQ(target.a,1);

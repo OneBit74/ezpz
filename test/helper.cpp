@@ -85,7 +85,7 @@ TEST(helper,ref){
 }
 TEST(helper,dynamic_ret){
 	int val = 0;
-	EXPECT_TRUE(parse(" "," "_p+!retd(2),val));
+	EXPECT_TRUE(parse(" "," "_p+retd(2),val));
 	EXPECT_EQ(val,2);
 }
 /* TEST(helper,eoi_fail_msg2){ */

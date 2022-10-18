@@ -14,7 +14,7 @@ int main(){
 				std::cout << ret << " " << op << " " << next << " = " << operation(ret,next) << std::endl;
 				ret = operation(ret,next);
 			};
-			return parse(ctx,!upper+ws+(any(op+ws+recover(ref(upper))*aggregate)),ret);
+			return parse(ctx,upper+ws+(any(op+ws+recover(ref(upper))*aggregate)),ret);
 		});
 	};
 	polymorphic_rpo<ctx_t,num_t> base;
@@ -35,26 +35,26 @@ int main(){
 	auto p12 = op_maker_la("!=",p11,std::not_equal_to<num_t>());
 
 	auto& last = p12;
-	auto expr = ws+!ref(last)+ws;
+	auto expr = ws+ref(last)+ws;
 
 	auto ident = capture("%" | plus(alpha));
 	std::unordered_map<std::string,num_t> store;
 	auto function = 
-		  ( EZPZ_STRING("sin(")+!(ref(expr)*[](auto val){return std::sin(val);})+EZPZ_STRING(")") )
-		| ( EZPZ_STRING("cos(")+!(ref(expr)*[](auto val){return std::cos(val);})+EZPZ_STRING(")") )
-		| ( EZPZ_STRING("abs(")+!(ref(expr)*[](auto val){return std::abs(val);})+EZPZ_STRING(")") )
-		| ( EZPZ_STRING("sqrt(")+!(ref(expr)*[](auto val){return (num_t)(std::sqrt(val));})+EZPZ_STRING(")") )
+		  ( EZPZ_STRING("sin(")+(ref(expr)*[](auto val){return std::sin(val);})+EZPZ_STRING(")") )
+		| ( EZPZ_STRING("cos(")+(ref(expr)*[](auto val){return std::cos(val);})+EZPZ_STRING(")") )
+		| ( EZPZ_STRING("abs(")+(ref(expr)*[](auto val){return std::abs(val);})+EZPZ_STRING(")") )
+		| ( EZPZ_STRING("sqrt(")+(ref(expr)*[](auto val){return (num_t)(std::sqrt(val));})+EZPZ_STRING(")") )
 		;
 	auto base_impl = make_poly<ctx_t,num_t>(recover(
-		  ("-"+ws+!(ref(base)*std::negate<num_t>()))
-		| ("("+ws+!recover(ref(expr)+ws+")"))
-		| !decimal<num_t>
-		| !("pi"_p*ret<std::numbers::pi_v<num_t>>)
-		| !("e"_p*ret<std::numbers::e_v<num_t>>)
+		  ("-"+ws+(ref(base)*std::negate<num_t>()))
+		| ("("+ws+recover(ref(expr)+ws+")"))
+		| decimal<num_t>
+		| ("pi"_p*ret<std::numbers::pi_v<num_t>>)
+		| ("e"_p*ret<std::numbers::e_v<num_t>>)
 		| function
-		| !("true"_p * ret<num_t(1)>)
-		| !("false"_p * ret<num_t(0)>)
-		| !(ident*[&](auto id){
+		| ("true"_p * ret<num_t(1)>)
+		| ("false"_p * ret<num_t(0)>)
+		| (ident*[&](auto id){
 			auto ret =  store[std::string{id}];
 			std::cout << "loading " << id << " with " << ret << std::endl;
 			return ret;
@@ -62,7 +62,7 @@ int main(){
 		;
 	base = base_impl;
 
-	auto assignment = (!ident + ws + ":=" + ws + !expr + eoi)*[&](auto id, auto val){
+	auto assignment = (ident + ws + ":=" + ws + expr + eoi)*[&](auto id, auto val){
 		std::cout << "storing " << id << " with " << val << std::endl;
 		store[std::string{id}] = val;
 	};
@@ -75,7 +75,7 @@ int main(){
 
 		parse(ctx,recover(
 					assignment 
-				| ((!expr+eoi)*[&](auto val){store["%"] = val; std::cout << val << std::endl;}) 
+				| ((expr+eoi)*[&](auto val){store["%"] = val; std::cout << val << std::endl;}) 
 		));
 	}
 }

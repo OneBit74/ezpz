@@ -34,7 +34,7 @@ int main(){
 		EXPECT_TRUE(parse("World",p4));
 	}
 
-	// numbers and consumers
+	// * and !
 	{
 		EXPECT_TRUE(parse("123",decimal<int>));
 
@@ -46,7 +46,7 @@ int main(){
 
 		
 		parse("123",decimal<int>*
-			[&](int x){val = x;}
+			[&](int x){val = x;} // this is a consumer
 		);
 		EXPECT_EQ(val, 123);
 		val = 0;
@@ -57,15 +57,20 @@ int main(){
 		val = 0;
 
 		auto add = [](int x, int y){return x+y;};
-		parse("123 654",(!decimal<int>+" "+!decimal<int>)*add, val);
+		parse("123 654",(decimal<int>+" "+decimal<int>)*add, val);
 		EXPECT_EQ(val, 777);
 		val = 0;
 
 		// works with templates
 		// matches maximum output parameters
 		auto add_v2 = [](auto...nums){return (nums+...+0);};
-		parse("123 654",(!decimal<int>+" "+!decimal<int>)*add_v2, val);
+		parse("123 654",(decimal<int>+" "+decimal<int>)*add_v2, val);
 		EXPECT_EQ(val, 777);
+		val = 0;
+
+		// silence output with !
+		parse("123 654",!decimal<int>+" "+decimal<int>, val);
+		EXPECT_EQ(val, 654);
 		val = 0;
 	}
 

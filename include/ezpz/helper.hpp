@@ -7,7 +7,6 @@
 namespace ezpz{
 
 struct print_p {
-	using active = active_f;
 	using UNPARSED_LIST = TLIST<>;
 
 	std::string_view text;
@@ -22,7 +21,6 @@ inline parser auto print(std::string_view text){
 
 inline struct fail_p {
 	using UNPARSED_LIST = TLIST<>;
-	using active = active_f;
 	using ezpz_prop = TLIST<always_false>;
 
 	bool _parse(auto&){
@@ -30,7 +28,6 @@ inline struct fail_p {
 	}
 } fail;
 inline struct eoi_p {
-	using active = active_f;
 	using UNPARSED_LIST = TLIST<>;
 
 	bool _parse(auto& ctx){
@@ -44,7 +41,6 @@ inline struct eoi_p {
 
 template<parser P>
 struct capture_p {
-	using active = active_f;
 	using UNPARSED_LIST = TLIST<std::string_view>;
 
 	P parent;
@@ -160,7 +156,6 @@ struct recover_p {
 	static_assert(! contains<typename get_prop_tag<P>::type, always_true>::value,
 			"recovering from a parser that never fails does not make sense");
 	using UNPARSED_LIST = typename P::UNPARSED_LIST;
-	using active = typename P::active;
 	using ezpz_prop = TLIST<always_true>;
 
 	[[no_unique_address]] P p;
@@ -248,7 +243,6 @@ struct recover_and_else_p {
 		typename P1::UNPARSED_LIST,
 		TLIST<>
 	>::type;
-	using active = active_f;
 	using ezpz_prop = TLIST<>;
 
 	[[no_unique_address]] P1 p1;
@@ -287,7 +281,6 @@ inline recover_t<recover_default_config> recover;
 template<parser P, typename err_msg>
 struct must_p {
 	using UNPARSED_LIST = typename P::UNPARSED_LIST;
-	using active = typename P::active;
 	using ezpz_prop = typename get_prop_tag<P>::type;
 
 	[[no_unique_address]] P p;
@@ -327,7 +320,6 @@ parser auto must(auto&& p1, auto&& err_msg){
 template<typename...TS>
 struct retd_p {
 	using UNPARSED_LIST = TLIST<TS...>;
-	using active = active_f;
 	using ezpz_prop = TLIST<always_true>;
 
 	std::tuple<TS...> hold;
@@ -345,7 +337,6 @@ template<auto...vals>
 struct ret_p {
 	using UNPARSED_LIST = TLIST<decltype(vals)...>;
 	using ezpz_prop = TLIST<always_true>;
-	using active = active_f;
 	bool _parse(auto&, auto&...ret){
 		((ret = vals),...);
 		return true;

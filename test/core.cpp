@@ -52,7 +52,7 @@ TEST(core, multi_returning_alternative){
 TEST(core,and){
 	EXPECT_TRUE(parse("ab","a"_p+"b"_p));
 	int val = 0;
-	parse("",((no_parser*ret<1>)+!(no_parser*ret<2>))*assign(val));
+	parse("",(!(no_parser*ret<1>)+(no_parser*ret<2>))*assign(val));
 	EXPECT_EQ(val,2);
 }
 TEST(core,parse_or_undo){
@@ -86,7 +86,7 @@ TEST(core,or_undo_lhs){
 TEST(core,make_rpo_recursive){
 	basic_context ctx("123 456 789");;
 	auto number_list = make_rpo<std::vector<int>>([](auto& ctx, auto& self, auto& ret){
-		return parse(ctx,(!decimal<int>+optional(ws+!::ref(self)))*
+		return parse(ctx,(decimal<int>+optional(ws+::ref(self)))*
 		[&](int num, std::optional<std::vector<int>> list){
 			if(list)ret = std::move(*list);
 			ret.insert(std::begin(ret),num);

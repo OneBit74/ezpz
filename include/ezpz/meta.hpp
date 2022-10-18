@@ -31,8 +31,6 @@ template<typename T, T...vals>
 struct [[deprecated]] print_vals;
 
 class VOID {};
-struct active_t;
-struct active_f;
 struct always_true;
 struct always_false;
 

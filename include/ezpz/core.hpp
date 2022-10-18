@@ -28,7 +28,6 @@ auto assign_last(T1&& src, REST&&..., T1& dst){
 template<typename unp = VOID, typename REM = VOID, typename ... UNPARSED>
 struct consume_p {
 	using UNPARSED_LIST = TLIST<UNPARSED...>;
-	using active = active_f;
 
 	[[no_unique_address]] REM parent;
 	[[no_unique_address]] unp f;
@@ -92,23 +91,13 @@ struct takeback_and_call {
 };
 
 
-template<parser T>
-constexpr bool should_forget = std::is_same_v<typename T::active,active_f>;
 
 template<parser LHS, parser RHS>
 struct and_p {
-	using L_ARGS = typename t_if_else<
-		should_forget<LHS>,
-		TLIST<>,
-		typename LHS::UNPARSED_LIST
-	>::type;
-	using R_ARGS = typename t_if_else<
-		should_forget<RHS>,
-		TLIST<>,
-		typename RHS::UNPARSED_LIST
-	>::type;
+	using L_ARGS = typename LHS::UNPARSED_LIST;
+	using R_ARGS = typename RHS::UNPARSED_LIST;
 	using UNPARSED_LIST = typename L_ARGS::template append<R_ARGS>;
-	using active = active_t;
+
 	using ezpz_prop = typename t_if_else<
 		contains<typename get_prop_tag<LHS>::type, always_true>::value
 		&& contains<typename get_prop_tag<RHS>::type, always_true>::value,
@@ -138,20 +127,13 @@ struct and_p {
 		auto cb_rhs = [&](auto&...few_args){
 				return parse(ctx,rhs.get(),few_args...);
 		};
-		bool ret;
-		if constexpr (should_forget<LHS>){
-			ret = parse(ctx,lhs.get());
-		}else{
-			using front_t = typename instantiate_list<takefront_and_call, typename get_ref_list<L_ARGS>::type>::type;
-			ret = front_t::call(cb_lhs,args...);
-		}
+
+		using front_t = typename instantiate_list<takefront_and_call, typename get_ref_list<L_ARGS>::type>::type;
+		bool ret = front_t::call(cb_lhs,args...);
 		if(!ret)return false;
-		if constexpr (should_forget<RHS>){
-			ret = parse(ctx,rhs.get());
-		} else {
-			using back_t = typename instantiate_list<takeback_and_call, typename get_ref_list<L_ARGS>::type>::type;
-			ret = back_t::call(cb_rhs,args...);
-		}
+
+		using back_t = typename instantiate_list<takeback_and_call, typename get_ref_list<L_ARGS>::type>::type;
+		ret = back_t::call(cb_rhs,args...);
 		return ret;
 	}
 	void _undo(auto& ctx){
@@ -165,31 +147,9 @@ struct and_p {
 };
 
 
-template<typename parser>
-struct activated {
-	using UNPARSED_LIST = typename parser::UNPARSED_LIST;
-	using active = active_t;
-
-	parser p;
-	activated(auto&& p) : p(std::forward<parser>(p)) {};
-
-	bool dbg_inline(){
-		return true;
-	}
-	bool _parse(auto& ctx, auto&...args){
-		return parse(ctx,p,args...);
-	}
-};
-
-template<parser T> 
-auto operator!(T&& nr) {
-	using P = std::decay_t<T>;
-	return activated<P>(std::forward<P>(nr));
-}
 template<parser parser_t>
 struct forget {
 	using UNPARSED_LIST = TLIST<>;
-	using active = active_f;
 
 	[[no_unique_address]] parser_t p;
 
@@ -202,6 +162,11 @@ struct forget {
 		return true;
 	}
 };
+template<parser T> 
+auto operator!(T&& nr) {
+	using P = std::decay_t<T>;
+	return forget<P>(std::forward<P>(nr));
+}
 
 template<typename L>
 struct inline_tuple {
@@ -320,7 +285,7 @@ struct or_p {
 	using UNPARSED_LIST = typename or_helper<
 		typename P1::UNPARSED_LIST,
 		typename P2::UNPARSED_LIST>::type;
-	using active = active_t;
+
 	using ezpz_prop = typename t_if_else< 
 		contains<typename get_prop_tag<P2>::type,always_true>::value,
 		TLIST<always_true>,
@@ -455,7 +420,7 @@ requires (!std::is_function_v<std::remove_pointer_t<std::decay_t<F>>>)
 }
 inline struct no_parser_p {
 	using UNPARSED_LIST = TLIST<>;
-	using active = active_f;
+
 	constexpr bool _parse(const auto&){
 		return true;
 	}
@@ -469,7 +434,6 @@ static_assert(std::is_same_v<invoke_list<std::function<void(int&,int&)>,TLIST<in
 
 template<typename F_TYPE, typename ... ARGS>
 struct fr_parser_t {
-	using active = active_f;
 	using UNPARSED_LIST = TLIST<ARGS...>;
 
 	F_TYPE fds;
@@ -502,7 +466,6 @@ template<context_c context_t, typename...UNPARSED>
 struct rpo {
 	using f_type = std::function<bool(context_t&,UNPARSED&...)>;
 	using UNPARSED_LIST = TLIST<UNPARSED...>;
-	using active = active_f;
 
 	f_type f;
 
@@ -548,14 +511,12 @@ auto erase(parser auto&& parser){
 template<typename ctx, typename...RET>
 struct polymorphic_rpo_base {
 	using UNPARSED_LIST = TLIST<RET...>;
-	using active = active_f;
 
 	virtual bool _parse(ctx& ,RET&...) = 0;
 };
 template<parser parser>
 class ref_p {
 public:
-	using active = typename parser::active;
 	using UNPARSED_LIST = typename parser::UNPARSED_LIST;
 
 	parser* p;

@@ -8,7 +8,6 @@
 namespace ezpz{
 
 	struct ref_text_p {
-		using active = active_f;
 		using UNPARSED_LIST = TLIST<>;
 
 		const std::string_view& sv;
@@ -29,7 +28,6 @@ namespace ezpz{
 	};
 	template<typename F> requires std::is_invocable_r_v<std::string_view,F>
 	struct fast_text_p {
-		using active = active_f;
 		using UNPARSED_LIST = TLIST<>;
 
 		[[no_unique_address]] F f;
@@ -51,7 +49,6 @@ namespace ezpz{
 	};
 
 	struct text_ci_p {
-		using active = active_f;
 		using UNPARSED_LIST = TLIST<>;
 
 		std::string_view sv;
@@ -73,7 +70,6 @@ namespace ezpz{
 	};
 
 	struct text_p {
-		using active = active_f;
 		using UNPARSED_LIST = TLIST<>;
 
 		std::string_view sv;
@@ -124,7 +120,6 @@ namespace ezpz{
 	}
 	template<const char* data, size_t size>
 	struct text_pc {
-		using active = active_f;
 		using UNPARSED_LIST = TLIST<>;
 		static constexpr const char* end = data+size;
 		inline bool _parse(basic_context_c auto& ctx) {
@@ -148,7 +143,6 @@ namespace ezpz{
 	}
 
 	inline struct ws_p {
-		using active = active_f;
 		using UNPARSED_LIST = TLIST<>;
 
 		static constexpr auto _description = "whitespace";
@@ -189,7 +183,6 @@ namespace ezpz{
 
 	template<typename num_t, int base> 
 	struct number_p{
-		using active = active_f;
 		using UNPARSED_LIST = TLIST<num_t>;
 
 		static_assert(base <= 10);
@@ -243,7 +236,6 @@ namespace ezpz{
 	auto& decimal = number<integer,10>;
 
 	inline struct alpha_p {
-		using active = active_f;
 		using UNPARSED_LIST = TLIST<char>;
 
 		static constexpr auto _description = "alphabetic character";
@@ -258,7 +250,6 @@ namespace ezpz{
 
 	template<typename F>
 	struct accept_if_p {
-		using active = active_f;
 		using UNPARSED_LIST = TLIST<>;
 
 		[[no_unique_address]] F f;
@@ -295,7 +286,6 @@ namespace ezpz{
 	}
 	template<typename T>
 	struct token_eq_p {
-		using active = active_f;
 		using UNPARSED_LIST = TLIST<>;
 		T token;
 

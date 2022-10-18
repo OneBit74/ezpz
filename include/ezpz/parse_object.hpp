@@ -13,7 +13,6 @@ template<typename T>
 concept parser_d =
 	requires(T t){
 		typename T::UNPARSED_LIST;
-		typename T::active;
 	};
 template<typename T>
 concept parser = parser_d<std::decay_t<T>>;
@@ -30,7 +29,6 @@ concept rparser = parser<P> && requires(){
 	requires tlist_c<typename P::UNPARSED_LIST>;
 	/* requires apply_list<rparser_invocability,append_list<TLIST<P>,typename P::UNPARSED_LIST>::type>::type; */
 	/* typename std::decay_t<P>::UNPARSED_LIST; */
-	/* typename std::decay_t<P>::active; */
 	/* typename std::enable_if_t<!std::same_as<typename std::decay_t<P>::UNPARSED_LIST, TLIST<EOL>>>; */
 };
 template<typename P, typename ... RET>
