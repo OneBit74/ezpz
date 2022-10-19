@@ -8,7 +8,7 @@
 namespace ezpz{
 
 	struct ref_text_p {
-		using UNPARSED_LIST = TLIST<>;
+		using ezpz_output = TLIST<>;
 
 		const std::string_view& sv;
 		inline ref_text_p(const std::string_view& sv) : sv(sv) {}
@@ -28,7 +28,7 @@ namespace ezpz{
 	};
 	template<typename F> requires std::is_invocable_r_v<std::string_view,F>
 	struct fast_text_p {
-		using UNPARSED_LIST = TLIST<>;
+		using ezpz_output = TLIST<>;
 
 		[[no_unique_address]] F f;
 		inline fast_text_p(auto&& f) : f(std::forward<F>(f)) {}
@@ -49,7 +49,7 @@ namespace ezpz{
 	};
 
 	struct text_ci_p {
-		using UNPARSED_LIST = TLIST<>;
+		using ezpz_output = TLIST<>;
 
 		std::string_view sv;
 		constexpr text_ci_p(std::string_view sv) : sv(sv) {}
@@ -70,7 +70,7 @@ namespace ezpz{
 	};
 
 	struct text_p {
-		using UNPARSED_LIST = TLIST<>;
+		using ezpz_output = TLIST<>;
 
 		std::string_view sv;
 		constexpr text_p(std::string_view sv) : sv(sv) {}
@@ -120,7 +120,7 @@ namespace ezpz{
 	}
 	template<const char* data, size_t size>
 	struct text_pc {
-		using UNPARSED_LIST = TLIST<>;
+		using ezpz_output = TLIST<>;
 		static constexpr const char* end = data+size;
 		inline bool _parse(basic_context_c auto& ctx) {
 			auto cur = data;
@@ -143,7 +143,7 @@ namespace ezpz{
 	}
 
 	inline struct ws_p {
-		using UNPARSED_LIST = TLIST<>;
+		using ezpz_output = TLIST<>;
 
 		static constexpr auto _description = "whitespace";
 		inline bool _parse(basic_context_c auto& ctx){
@@ -183,7 +183,7 @@ namespace ezpz{
 
 	template<typename num_t, int base> 
 	struct number_p{
-		using UNPARSED_LIST = TLIST<num_t>;
+		using ezpz_output = TLIST<num_t>;
 
 		static_assert(base <= 10);
 		static_assert(base >= 2);
@@ -236,7 +236,7 @@ namespace ezpz{
 	auto& decimal = number<integer,10>;
 
 	inline struct alpha_p {
-		using UNPARSED_LIST = TLIST<char>;
+		using ezpz_output = TLIST<char>;
 
 		static constexpr auto _description = "alphabetic character";
 		bool _parse(basic_context_c auto& ctx, char& c){
@@ -250,7 +250,7 @@ namespace ezpz{
 
 	template<typename F>
 	struct accept_if_p {
-		using UNPARSED_LIST = TLIST<>;
+		using ezpz_output = TLIST<>;
 
 		[[no_unique_address]] F f;
 
@@ -286,7 +286,7 @@ namespace ezpz{
 	}
 	template<typename T>
 	struct token_eq_p {
-		using UNPARSED_LIST = TLIST<>;
+		using ezpz_output = TLIST<>;
 		T token;
 
 		bool _parse(auto& ctx){

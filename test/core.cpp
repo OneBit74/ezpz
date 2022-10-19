@@ -28,7 +28,7 @@ TEST(core, multi_returning_alternative){
 		| "c"_p*ret<int32_t(4)>;
 	auto casted_parser = parser*cast<int>;
 
-	static_assert(std::is_same_v<decltype(parser)::UNPARSED_LIST,
+	static_assert(std::is_same_v<decltype(parser)::ezpz_output,
 			TLIST<std::variant<int8_t,int16_t,int32_t>>>);
 	int i = 0;
 	EXPECT_TRUE(parse("a",casted_parser,i));
@@ -39,9 +39,9 @@ TEST(core, multi_returning_alternative){
 	EXPECT_EQ(i,4);
 
 	auto p2 = fail | "z"_p*ret<2> | "x"_p*ret<3>;
-	/* print_types<typename decltype(p2)::UNPARSED_LIST> asd; */
+	/* print_types<typename decltype(p2)::ezpz_output> asd; */
 	static_assert(std::is_same_v<
-			typename decltype(p2)::UNPARSED_LIST,
+			typename decltype(p2)::ezpz_output,
 			TLIST<std::optional<int>>>);
 	std::optional<int> res;
 	EXPECT_TRUE(parse("z",p2,res));

@@ -12,7 +12,7 @@ concept tlist_c = requires(){
 template<typename T>
 concept parser_d =
 	requires(T t){
-		typename T::UNPARSED_LIST;
+		typename T::ezpz_output;
 	};
 template<typename T>
 concept parser = parser_d<std::decay_t<T>>;
@@ -25,14 +25,14 @@ concept rparser_invocability = context_c<context_t> &&
 	};
 template<typename P>
 concept rparser = parser<P> && requires(){
-	typename std::enable_if_t<!std::same_as<typename P::UNPARSED_LIST, TLIST<>>>;
-	requires tlist_c<typename P::UNPARSED_LIST>;
-	/* requires apply_list<rparser_invocability,append_list<TLIST<P>,typename P::UNPARSED_LIST>::type>::type; */
-	/* typename std::decay_t<P>::UNPARSED_LIST; */
-	/* typename std::enable_if_t<!std::same_as<typename std::decay_t<P>::UNPARSED_LIST, TLIST<EOL>>>; */
+	typename std::enable_if_t<!std::same_as<typename P::ezpz_output, TLIST<>>>;
+	requires tlist_c<typename P::ezpz_output>;
+	/* requires apply_list<rparser_invocability,append_list<TLIST<P>,typename P::ezpz_output>::type>::type; */
+	/* typename std::decay_t<P>::ezpz_output; */
+	/* typename std::enable_if_t<!std::same_as<typename std::decay_t<P>::ezpz_output, TLIST<EOL>>>; */
 };
 template<typename P, typename ... RET>
-concept RPO_c = parser<P> && std::same_as<typename P::UNPARSED_LIST,TLIST<RET...>>;
+concept RPO_c = parser<P> && std::same_as<typename P::ezpz_output,TLIST<RET...>>;
 
 void undo(context_c auto& ctx, parser auto& p){
 	if constexpr( requires(decltype(p) p, decltype(ctx) ctx){p._undo(ctx);} ) {
@@ -66,12 +66,12 @@ template<context_c context_t, typename P, typename...ARGS>
 requires parser<std::decay_t<P>>
 bool parse(context_t& ctx, P&& p, ARGS&...args) {
 	using P_t = std::decay_t<P>;
-	static_assert(sizeof...(ARGS) == 0 || sizeof...(ARGS) == P_t::UNPARSED_LIST::size,
+	static_assert(sizeof...(ARGS) == 0 || sizeof...(ARGS) == P_t::ezpz_output::size,
 			"invalid amount of arguments to ezpz::parse");
-	static_assert(sizeof...(ARGS) == 0 || std::same_as<typename get_decay_list<TLIST<ARGS...>>::type,typename P_t::UNPARSED_LIST>,
+	static_assert(sizeof...(ARGS) == 0 || std::same_as<typename get_decay_list<TLIST<ARGS...>>::type,typename P_t::ezpz_output>,
 			"wrong argument types to ezpz::parse");
-	if constexpr(sizeof...(ARGS) == 0 && P_t::UNPARSED_LIST::size != 0){
-		using hold_t = typename instantiate_list<hold_normal, typename P_t::UNPARSED_LIST>::type;
+	if constexpr(sizeof...(ARGS) == 0 && P_t::ezpz_output::size != 0){
+		using hold_t = typename instantiate_list<hold_normal, typename P_t::ezpz_output>::type;
 		hold_t hold;
 		return hold.apply([&](auto&...args){
 			return parse(ctx,p,args...);

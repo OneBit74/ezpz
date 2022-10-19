@@ -27,7 +27,7 @@ auto assign_last(T1&& src, REST&&..., T1& dst){
 
 template<typename unp = VOID, typename REM = VOID, typename ... UNPARSED>
 struct consume_p {
-	using UNPARSED_LIST = TLIST<UNPARSED...>;
+	using ezpz_output = TLIST<UNPARSED...>;
 
 	[[no_unique_address]] REM parent;
 	[[no_unique_address]] unp f;
@@ -94,9 +94,9 @@ struct takeback_and_call {
 
 template<parser LHS, parser RHS>
 struct and_p {
-	using L_ARGS = typename LHS::UNPARSED_LIST;
-	using R_ARGS = typename RHS::UNPARSED_LIST;
-	using UNPARSED_LIST = typename L_ARGS::template append<R_ARGS>;
+	using L_ARGS = typename LHS::ezpz_output;
+	using R_ARGS = typename RHS::ezpz_output;
+	using ezpz_output = typename L_ARGS::template append<R_ARGS>;
 
 	using ezpz_prop = typename t_if_else<
 		contains<typename get_prop_tag<LHS>::type, always_true>::value
@@ -149,7 +149,7 @@ struct and_p {
 
 template<parser parser_t>
 struct forget {
-	using UNPARSED_LIST = TLIST<>;
+	using ezpz_output = TLIST<>;
 
 	[[no_unique_address]] parser_t p;
 
@@ -282,9 +282,9 @@ auto& get_first(auto& first, auto&...){
 
 template<parser P1, parser P2>
 struct or_p {
-	using UNPARSED_LIST = typename or_helper<
-		typename P1::UNPARSED_LIST,
-		typename P2::UNPARSED_LIST>::type;
+	using ezpz_output = typename or_helper<
+		typename P1::ezpz_output,
+		typename P2::ezpz_output>::type;
 
 	using ezpz_prop = typename t_if_else< 
 		contains<typename get_prop_tag<P2>::type,always_true>::value,
@@ -301,9 +301,9 @@ struct or_p {
 	auto attempt(T& t, auto& ctx, auto&...ret) -> bool {
 		using parser_t = std::decay_t<T>;
 		if constexpr( rparser<parser_t> ){
-			if constexpr (UNPARSED_LIST::size == 1){
-				using h_t = typename apply_list<hold_normal,typename parser_t::UNPARSED_LIST>::type;
-				using ret_type = typename UNPARSED_LIST::type;
+			if constexpr (ezpz_output::size == 1){
+				using h_t = typename apply_list<hold_normal,typename parser_t::ezpz_output>::type;
+				using ret_type = typename ezpz_output::type;
 
 				h_t h;
 				auto success = h.apply([&](auto&...args){
@@ -315,7 +315,7 @@ struct or_p {
 				});
 				if(success){
 					get_first(ret...) = h.apply([](auto&...args) -> ret_type{
-						if constexpr (sizeof...(args) == 1 && is_variant<typename parser_t::UNPARSED_LIST::type>) {
+						if constexpr (sizeof...(args) == 1 && is_variant<typename parser_t::ezpz_output::type>) {
 							return std::visit([](auto&& inner){
 									return ret_type{std::forward<std::decay_t<decltype(inner)>>(inner)};
 							}, std::move(args)...);
@@ -386,14 +386,14 @@ requires (!std::is_function_v<std::remove_pointer_t<std::decay_t<F>>>)
 {
 	using P_t = std::decay_t<P>;
 	using F_t = std::decay_t<F>;
-	using invoke_info = invoke_list<F_t,typename P_t::UNPARSED_LIST>;
+	using invoke_info = invoke_list<F_t,typename P_t::ezpz_output>;
 	using invoke_args = typename invoke_info::args;
-	/* print_types<typename P::UNPARSED_LIST,invoke_args> asd; */
+	/* print_types<typename P::ezpz_output,invoke_args> asd; */
 	static constexpr bool callable = !std::is_same_v<invoke_args,VOID>;
 	if constexpr(!callable){
 		static constexpr bool not_ref_callable = std::is_same_v<
 			invoke_list<F_t,typename get_ref_list<
-					typename P_t::UNPARSED_LIST
+					typename P_t::ezpz_output
 				>::type
 			>,
 			invoke_info
@@ -402,7 +402,7 @@ requires (!std::is_function_v<std::remove_pointer_t<std::decay_t<F>>>)
 	}
 	static_assert(callable,"unparser callback is not callable by any of the available values");
 	using remaining_types = 
-		typename pop_n<invoke_args::size,typename P_t::UNPARSED_LIST>::type;
+		typename pop_n<invoke_args::size,typename P_t::ezpz_output>::type;
 	using F_TYPE = f_wrapper<F_t,typename invoke_info::ret,typename invoke_info::args>;
 	if constexpr (!std::is_same_v<typename invoke_info::ret,void> && !std::is_same_v<typename invoke_info::ret,VOID>){
 		using ret_args = 
@@ -419,7 +419,7 @@ requires (!std::is_function_v<std::remove_pointer_t<std::decay_t<F>>>)
 	}
 }
 inline struct no_parser_p {
-	using UNPARSED_LIST = TLIST<>;
+	using ezpz_output = TLIST<>;
 
 	constexpr bool _parse(const auto&){
 		return true;
@@ -434,7 +434,7 @@ static_assert(std::is_same_v<invoke_list<std::function<void(int&,int&)>,TLIST<in
 
 template<typename F_TYPE, typename ... ARGS>
 struct fr_parser_t {
-	using UNPARSED_LIST = TLIST<ARGS...>;
+	using ezpz_output = TLIST<ARGS...>;
 
 	F_TYPE fds;
 	fr_parser_t(F_TYPE&& fds) : fds(std::forward<F_TYPE>(fds)) {};
@@ -465,7 +465,7 @@ auto make_rpo(auto&& f){
 template<context_c context_t, typename...UNPARSED>
 struct rpo {
 	using f_type = std::function<bool(context_t&,UNPARSED&...)>;
-	using UNPARSED_LIST = TLIST<UNPARSED...>;
+	using ezpz_output = TLIST<UNPARSED...>;
 
 	f_type f;
 
@@ -485,7 +485,7 @@ struct rpo {
 	template<parser T>
 	void operator=(T&& p){
 		using P_t = std::decay_t<T>;
-		static_assert(std::same_as<typename P_t::UNPARSED_LIST, UNPARSED_LIST>, "unexpected return-types of right-hand-side parser to ezpz::rpo");
+		static_assert(std::same_as<typename P_t::ezpz_output, ezpz_output>, "unexpected return-types of right-hand-side parser to ezpz::rpo");
 		f = [p = std::forward<P_t>(p)](context_t& ctx, auto&...up_args) mutable -> bool {
 			return parse(ctx,p,up_args...);
 		};
@@ -503,21 +503,21 @@ using basic_rpo = rpo<basic_context, ARGS...>;
 auto erase(parser auto&& parser){
 	using prev_type = std::decay_t<decltype(parser)>;
 	using ret_type = 
-		typename apply_list<rpo,typename prev_type::UNPARSED_LIST>::type;
+		typename apply_list<rpo,typename prev_type::ezpz_output>::type;
 	ret_type ret = parser;
 	return ret;
 }
 
 template<typename ctx, typename...RET>
 struct polymorphic_rpo_base {
-	using UNPARSED_LIST = TLIST<RET...>;
+	using ezpz_output = TLIST<RET...>;
 
 	virtual bool _parse(ctx& ,RET&...) = 0;
 };
 template<parser parser>
 class ref_p {
 public:
-	using UNPARSED_LIST = typename parser::UNPARSED_LIST;
+	using ezpz_output = typename parser::ezpz_output;
 
 	parser* p;
 	ref_p() = default;

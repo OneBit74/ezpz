@@ -7,7 +7,7 @@
 namespace ezpz{
 
 struct print_p {
-	using UNPARSED_LIST = TLIST<>;
+	using ezpz_output = TLIST<>;
 
 	std::string_view text;
 	bool _parse(auto&){
@@ -20,7 +20,7 @@ inline parser auto print(std::string_view text){
 };
 
 inline struct fail_p {
-	using UNPARSED_LIST = TLIST<>;
+	using ezpz_output = TLIST<>;
 	using ezpz_prop = TLIST<always_false>;
 
 	bool _parse(auto&){
@@ -28,7 +28,7 @@ inline struct fail_p {
 	}
 } fail;
 inline struct eoi_p {
-	using UNPARSED_LIST = TLIST<>;
+	using ezpz_output = TLIST<>;
 
 	bool _parse(auto& ctx){
 		return ctx.done();
@@ -41,7 +41,7 @@ inline struct eoi_p {
 
 template<parser P>
 struct capture_p {
-	using UNPARSED_LIST = TLIST<std::string_view>;
+	using ezpz_output = TLIST<std::string_view>;
 
 	P parent;
 	capture_p(P&& op) : parent(std::move(op)) {}
@@ -155,7 +155,7 @@ template<parser P, typename recover_config>
 struct recover_p {
 	static_assert(! contains<typename get_prop_tag<P>::type, always_true>::value,
 			"recovering from a parser that never fails does not make sense");
-	using UNPARSED_LIST = typename P::UNPARSED_LIST;
+	using ezpz_output = typename P::ezpz_output;
 	using ezpz_prop = TLIST<always_true>;
 
 	[[no_unique_address]] P p;
@@ -238,9 +238,9 @@ struct recover_p {
 };
 template<parser P1, parser P2>
 struct recover_and_else_p {
-	using UNPARSED_LIST = typename t_if_else<
-		std::same_as<typename P1::UNPARSED_LIST, typename P2::UNPARSED_LIST>,
-		typename P1::UNPARSED_LIST,
+	using ezpz_output = typename t_if_else<
+		std::same_as<typename P1::ezpz_output, typename P2::ezpz_output>,
+		typename P1::ezpz_output,
 		TLIST<>
 	>::type;
 	using ezpz_prop = TLIST<>;
@@ -280,7 +280,7 @@ inline recover_t<recover_default_config> recover;
 
 template<parser P, typename err_msg>
 struct must_p {
-	using UNPARSED_LIST = typename P::UNPARSED_LIST;
+	using ezpz_output = typename P::ezpz_output;
 	using ezpz_prop = typename get_prop_tag<P>::type;
 
 	[[no_unique_address]] P p;
@@ -319,7 +319,7 @@ parser auto must(auto&& p1, auto&& err_msg){
 
 template<typename...TS>
 struct retd_p {
-	using UNPARSED_LIST = TLIST<TS...>;
+	using ezpz_output = TLIST<TS...>;
 	using ezpz_prop = TLIST<always_true>;
 
 	std::tuple<TS...> hold;
@@ -335,7 +335,7 @@ struct retd_p {
 };
 template<auto...vals>
 struct ret_p {
-	using UNPARSED_LIST = TLIST<decltype(vals)...>;
+	using ezpz_output = TLIST<decltype(vals)...>;
 	using ezpz_prop = TLIST<always_true>;
 	bool _parse(auto&, auto&...ret){
 		((ret = vals),...);

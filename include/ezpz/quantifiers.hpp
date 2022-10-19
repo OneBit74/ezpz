@@ -18,7 +18,7 @@ parser auto plus(T&& rhs) {
 template<parser P, std::invocable VAL_F, typename AGG_F>
 struct agg_any_p {
 	using RET = std::invoke_result_t<VAL_F>;
-	using UNPARSED_LIST = TLIST<RET>;
+	using ezpz_output = TLIST<RET>;
 	
 	[[no_unique_address]] P p;
 	[[no_unique_address]] VAL_F v;
@@ -32,7 +32,7 @@ struct agg_any_p {
 
 	bool _parse(auto& ctx, RET& ret){
 		ret = v();
-		using hold_t = typename apply_list<hold_normal,typename P::UNPARSED_LIST>::type;
+		using hold_t = typename apply_list<hold_normal,typename P::ezpz_output>::type;
 		while(!ctx.done()){
 			hold_t hold;
 			bool success = hold.apply([&](auto&...args){
@@ -45,7 +45,7 @@ struct agg_any_p {
 					std::is_invocable_r,
 					typename append_list<
 						TLIST<RET,AGG_F,RET>,
-						typename P::UNPARSED_LIST>::type
+						typename P::ezpz_output>::type
 				>::type;
 				if constexpr (constraint::value){
 					ret = f(ret,result...);
@@ -64,8 +64,8 @@ struct empty_aggregator {
 };
 template<parser T>
 struct any_p {
-	using UNPARSED_LIST = TLIST<>;
-	using INNER_RET = typename T::UNPARSED_LIST;
+	using ezpz_output = TLIST<>;
+	using INNER_RET = typename T::ezpz_output;
 	using ezpz_prop = TLIST<always_true>;
 
 	static_assert(!get_prop_tag<T>::type::template contains<always_true>,
@@ -112,7 +112,7 @@ parser auto any(T&& rhs) {
 }
 template<typename P>
 struct not_p {
-	using UNPARSED_LIST = TLIST<>;
+	using ezpz_output = TLIST<>;
 	using ezpz_prop = typename t_if_else<
 		contains<typename get_prop_tag<P>::type, always_true>::value,
 		TLIST<always_false>,
@@ -138,10 +138,10 @@ parser auto notf(T&& rhs) requires parser<std::decay_t<T>>{
 }
 /* template<typename P> */
 /* struct optional_p { */
-/* 	using UNPARSED_LIST = typename t_if_else< */
-/* 		  std::same_as<typename P::UNPARSED_LIST,TLIST<>>, */
+/* 	using ezpz_output = typename t_if_else< */
+/* 		  std::same_as<typename P::ezpz_output,TLIST<>>, */
 /* 		  TLIST<>, */
-/* 		  apply_list<std::optional,P::UNPARSED_LIST>::type */
+/* 		  apply_list<std::optional,P::ezpz_output>::type */
 /* 	>::type; */
 /* 	using ezpz_prop = TLIST<always_true>; */
 
@@ -159,7 +159,7 @@ parser auto optional(T&& rhs) {
 }
 template<parser T>
 struct peek_p {
-	using UNPARSED_LIST = typename T::UNPARSED_LIST; 
+	using ezpz_output = typename T::ezpz_output; 
 	using ezpz_prop = typename get_prop_tag<T>::type;
 
 	T p;
@@ -202,8 +202,8 @@ auto times(int amount,auto&& parser){
 }
 template<parser P, typename count_f_t>
 struct max_p_impl {
-	using UNPARSED_LIST = TLIST<>;
-	using INNER_RET = typename P::UNPARSED_LIST;
+	using ezpz_output = TLIST<>;
+	using INNER_RET = typename P::ezpz_output;
 
 	[[no_unique_address]] P p;
 	[[no_unique_address]] count_f_t count_f;
@@ -261,8 +261,8 @@ auto max(int amount,auto&& parser){
 }
 template<parser P, typename count_f_t>
 struct min_p_impl {
-	using UNPARSED_LIST = TLIST<>;
-	using INNER_RET = typename P::UNPARSED_LIST;
+	using ezpz_output = TLIST<>;
+	using INNER_RET = typename P::ezpz_output;
 
 	[[no_unique_address]] P p;
 	[[no_unique_address]] count_f_t count_f;
@@ -318,7 +318,7 @@ parser auto min(int count, parser auto&& parser){
 template<typename P, typename V, typename A>
 struct reduce_p {
 	using RET = std::invoke_result_t<V>;
-	using UNPARSED_LIST = TLIST<RET>;
+	using ezpz_output = TLIST<RET>;
 	using ezpz_prop = typename get_prop_tag<P>::type;
 
 	static_assert(!std::same_as<TLIST<>,typename P::INNER_RET>, "[ezpz][reduce_p] no return values available to aggregate over");

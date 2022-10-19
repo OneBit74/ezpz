@@ -14,7 +14,7 @@ struct node {
 
 auto ident = capture(regex("\\w+"));
 struct xml_node_p {
-	using UNPARSED_LIST = TLIST<node>;
+	using ezpz_output = TLIST<node>;
 
 	bool _parse(auto& ctx, node& ret){
 		auto attribute_list = any((ident+recover(ws+"="+ws+ident+ws))*[&](auto&& key, auto&& value){ret.attributes.emplace_back(key,value);});
