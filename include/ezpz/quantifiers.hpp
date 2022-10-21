@@ -136,26 +136,45 @@ parser auto notf(T&& rhs) requires parser<std::decay_t<T>>{
 	using TT = std::decay_t<T>;
 	return not_p<TT>(std::forward<TT>(rhs));
 }
-/* template<typename P> */
-/* struct optional_p { */
-/* 	using ezpz_output = typename t_if_else< */
-/* 		  std::same_as<typename P::ezpz_output,TLIST<>>, */
-/* 		  TLIST<>, */
-/* 		  apply_list<std::optional,P::ezpz_output>::type */
-/* 	>::type; */
-/* 	using ezpz_prop = TLIST<always_true>; */
+template<typename P>
+struct optional_p {
+	using ezpz_output = typename t_if_else<
+		P::ezpz_output::size == 0,
+		TLIST<>,
+		typename t_if_else<
+			P::ezpz_output::size == 1,
+			TLIST<typename instantiate_if<P::ezpz_output::size == 1,std::optional,typename P::ezpz_output::type>::type>,
+			TLIST<std::optional<typename apply_list<std::tuple, typename P::ezpz_output>::type>>
+		>::type
+	>::type;
+	using ezpz_prop = TLIST<always_true>;
 
-/* 	[[no_unique_address]] P p; */
+	[[no_unique_address]] P p;
 
-/* 	optional_p(auto&& p) : p(std::forward<P>(p)) {} */
+	optional_p(auto&& p) : p(std::forward<P>(p)) {}
 
-/* 	bool _parse(auto& ctx) */
-/* }; */
+	bool _parse(auto& ctx, auto&...ARGS){
+		if constexpr(sizeof...(ARGS) == 0){
+			parse(ctx, p);
+		} else {
+			using hold_type = typename instantiate_list<hold_normal,typename P::ezpz_output>::type;
+			hold_type hold;
+			hold.apply([&](auto&...args){
+				parse(ctx, p, args...);
+				if constexpr( sizeof...(args) == 1 ){
+					assign_first(std::optional{args...},ARGS...);
+				} else {
+					assign_first(std::optional{std::tuple{args...}},ARGS...);
+				}
+			});
+		}
+		return true;
+	}
+};
 template<parser T>
-parser auto optional(T&& rhs) {
+parser auto optional(T&& p) {
 	using TT = std::decay_t<T>;
-	auto ret = std::forward<TT>(rhs) | notf(fail);
-	return ret;
+	return optional_p<TT>{std::forward<TT>(p)};
 }
 template<parser T>
 struct peek_p {

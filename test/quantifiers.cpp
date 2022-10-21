@@ -82,6 +82,18 @@ TEST(quantifiers,optional){
 		EXPECT_TRUE(parse(ctx,"abc"+optional("def"_p)+"ghc"));
 		EXPECT_TRUE(ctx.done());
 	}
+	{
+		std::optional<int> res;
+		parse("123",optional(decimal<int>),res);
+		EXPECT_EQ(res,123);
+	}
+	{
+		std::optional<std::tuple<int,int>> res;
+		parse("123 456",optional(decimal<int>+" "+decimal<int>),res);
+		ASSERT_TRUE(res);
+		EXPECT_EQ(std::get<0>(*res),123);
+		EXPECT_EQ(std::get<1>(*res),456);
+	}
 }
 TEST(quantifiers,peek){
 	EXPECT_TRUE(parse("a",notf("b"_p)));
