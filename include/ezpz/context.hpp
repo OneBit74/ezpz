@@ -86,11 +86,11 @@ namespace ezpz{
 	class basic_context : public min_context {
 	public:
 		using min_context::min_context;
-		bool debug = false;
-		size_t depth = 0;
+		bool debug = false; // if true provides debug information to stdout during a parse
+		size_t depth = 0; // only used in debug mode; keeps track of the indentation
 		std::unordered_map<std::string,std::regex> regex_cache;
-		std::vector<decltype(pos)> nl_pos;
-		bool error_mode = false;
+		std::vector<decltype(pos)> nl_pos; // keeps track of '\n' positions
+		bool error_mode = false; // when a error is encountered this becomes true
 
 		void advance(){
 			min_context::advance();
@@ -198,6 +198,16 @@ namespace ezpz{
 		}
 
 		std::optional<std::string> resource_name;
+		inline void setResource(std::string s){
+			resource_name = std::move(s);
+		}
+
+		void reset_failure() {
+			error_mode = false;
+		}
+		bool failed() const {
+			return error_mode;
+		}
 		void error(auto& candidates){
 			error_mode = true;
 			if(!candidates.empty()){

@@ -140,8 +140,8 @@ struct recover_default_config {
 	static int match(auto& ctx, auto&, auto prev_pos){
 		return ctx.getPosition()-prev_pos;
 	}
-	static bool keep(int, int){
-		return true;
+	static bool keep(int best, int cur){
+		return cur == best;
 	}
 	static void perform_secondary_parse(auto& ctx){
 		if constexpr (std::same_as<decltype(ctx.token()),char>){
@@ -211,6 +211,7 @@ struct recover_p {
 				if(!recover_config::keep(max_goodness, candidates[i].goodness)){
 					std::swap(candidates[i],candidates.back());
 					candidates.pop_back();
+					--i;
 				}
 			}
 
