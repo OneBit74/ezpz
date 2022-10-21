@@ -42,6 +42,7 @@ add_executable(expr2 examples/arith_expr_repl.cpp)
 add_executable(xml examples/xml.cpp)
 add_executable(lex examples/lexical.cpp)
 add_executable(json examples/json.cpp)
+add_executable(cli examples/cli.cpp)
 
 find_package(GTest REQUIRED)
 add_executable(stest
