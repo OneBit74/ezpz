@@ -27,25 +27,13 @@ add_compile_options(
 	)
 set(CMAKE_CXX_STANDARD 20)
 
-link_libraries(ubsan)
-link_libraries(fmt)
-link_libraries(pthread)
+find_package(GTest REQUIRED)
+link_libraries(ubsan fmt pthread ${GTEST_BOTH_LIBRARIES} gmock)
 
 
 include_directories(include)
 
-add_executable(tutorial examples/tutorial.cpp)
-
-add_executable(expr1 examples/expr_v1.cpp)
-add_executable(expr2 examples/arith_expr_repl.cpp)
-
-add_executable(xml examples/xml.cpp)
-add_executable(lex examples/lexical.cpp)
-add_executable(json examples/json.cpp)
-add_executable(cli examples/cli.cpp)
-
-find_package(GTest REQUIRED)
-add_executable(stest
+set(test_src 
 	test/extra/cin_context.cpp
 	test/props.cpp
 	test/quantifiers.cpp
@@ -55,8 +43,25 @@ add_executable(stest
 	test/core.cpp
 	test/context.cpp
 )
-target_link_libraries(stest ${GTEST_BOTH_LIBRARIES} gmock)
-target_link_libraries(tutorial ${GTEST_BOTH_LIBRARIES})
+set(examples 
+	tutorial
+	expr_v1
+	arith_expr_repl
+	xml
+	lexical
+	json
+	cli
+)
+
+
+add_executable(stest ${test_src})
+add_test(unittests stest)
 add_dependencies(stest rapidcheck)
 target_link_libraries(stest ${rapidcheck_BINARY_DIR}/librapidcheck.a)
-add_test(ezpz_tests stest)
+
+foreach(example ${examples})
+	add_executable(${example} examples/${example}.cpp)
+	if(NOT ${example} STREQUAL arith_expr_repl)
+		add_test(example/${example} ${example})
+	endif()
+endforeach()
