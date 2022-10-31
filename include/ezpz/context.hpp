@@ -78,7 +78,7 @@ namespace ezpz{
 	}
 
 	template<typename P>
-	constexpr bool is_dbg_inline = contains<typename get_prop_tag<P>::type, dbg_inline>::value;
+	constexpr bool is_dbg_inline = contains<typename get_prop_tag<P>::raw, dbg_inline>::value;
 
 	class basic_context : public min_context {
 	public:
