@@ -50,11 +50,6 @@ struct consume_p {
 		parent(std::forward<P>(parent)),
 		f(std::forward<consumer>(f))
 	{};
-	void _undo(auto& ctx){
-		if constexpr ( !std::is_same_v<P,VOID> ) {
-			undo(ctx,parent);
-		}
-	}
 	bool _parse(auto& ctx, auto&...up_args){
 		using hold_args = typename get_decay_list<invoke_args>::type;
 		using hold_type = typename instantiate_list<hold_normal,hold_args>::type;
@@ -144,10 +139,6 @@ struct and_p {
 		using back_t = typename instantiate_list<takeback_and_call, typename get_ref_list<L_ARGS>::type>::type;
 		ret = back_t::call(cb_rhs,args...);
 		return ret;
-	}
-	void _undo(auto& ctx){
-		undo(ctx,rhs.get());
-		undo(ctx,lhs.get());
 	}
 
 };
@@ -498,9 +489,6 @@ public:
 	ref_p& operator=(const ref_p&) = default;
 	ref_p(parser& op) : p(&op) {}
 
-	void _undo(auto& ctx) {
-		undo(ctx,*p);
-	}
 	bool _parse(auto& ctx, auto&...args) {
 		return parse(ctx,*p,args...);
 	}

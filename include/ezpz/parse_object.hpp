@@ -34,12 +34,6 @@ concept rparser = parser<P> && requires(){
 template<typename P, typename ... RET>
 concept RPO_c = parser<P> && std::same_as<typename P::ezpz_output,TLIST<RET...>>;
 
-void undo(context_c auto& ctx, parser auto& p){
-	if constexpr( requires(decltype(p) p, decltype(ctx) ctx){p._undo(ctx);} ) {
-		p._undo(ctx);
-	}
-}
-
 bool parse(std::string_view s, parser auto&& p, auto&...args){
 	basic_context ctx(std::move(s));
 	return parse(ctx,std::forward<std::decay_t<decltype(p)>>(p),args...);
@@ -53,7 +47,6 @@ bool parse_or_undo(context_t& ctx, P&& p, ARGS&...args) {
 		return true;
 	}else{
 		ctx.setPosition(start_pos);
-		undo(ctx,p);
 		return false;
 	}
 }
