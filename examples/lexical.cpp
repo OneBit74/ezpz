@@ -42,9 +42,9 @@ int main(){
 		| "="_p * add_simple_token(EQ)
 		| "{"_p * add_simple_token(LBRACE)
 		| "}"_p * add_simple_token(RBRACE)
-		| decimal<float> * compress<TOKEN> * push_token
-		| decimal<int>  * compress<TOKEN> * push_token
-		| capture("\""+recover(must(any(notf("\"")+single) + "\""))) * compress<TOKEN> * push_token
+		| decimal<float> * into<TOKEN> * push_token
+		| decimal<int>  * into<TOKEN> * push_token
+		| capture("\""+recover(must(any(notf("\"")+single) + "\""))) * into<TOKEN> * push_token
 		| capture(plus(notf(" ")+single)) * [&](std::string_view sv){
 			tokens.push_back(TOKEN{IDENT,std::string{sv}});
 		};

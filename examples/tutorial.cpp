@@ -116,7 +116,7 @@ int main(){
 		{
 			rpo<ctx_t> parser;
 			// ref(...) takes a reference to a parser
-			// because rpo<...> can't/shouldn't be coppied
+			// because rpo<...> can't/shouldn't be copied
 			parser = "a"+optional(ref(parser));
 			EXPECT_TRUE(parse("aaaaa",ref(parser)+eoi));
 		}

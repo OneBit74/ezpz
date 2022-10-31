@@ -76,7 +76,7 @@ auto cast = [](auto&& val){
 };
 
 template<typename Target>
-auto compress = [](auto&&...ARGS) -> Target {
+auto into = [](auto&&...ARGS) -> Target {
 	return {std::forward<decltype(ARGS)>(ARGS)...};
 };
 

@@ -25,11 +25,11 @@ TEST(consumer,insert){
 	EXPECT_EQ(s.size(),1);
 	EXPECT_EQ(*begin(s),123);
 }
-TEST(consumer,compress){
+TEST(consumer,into){
 	struct Foo {
 		int a = 0, b = 0;
 	} target;
-	auto foo_p = (decimal<int>+" "_p+decimal<int>)*compress<Foo>;
+	auto foo_p = (decimal<int>+" "_p+decimal<int>)*into<Foo>;
 
 	EXPECT_TRUE(parse("1 2",foo_p,target));
 	EXPECT_EQ(target.a,1);
