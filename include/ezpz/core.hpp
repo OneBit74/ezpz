@@ -8,15 +8,6 @@
 namespace ezpz{
 
 
-template<typename F, typename _RET, typename _ARGS>
-struct f_wrapper : public F {
-	using RET = _RET;
-	using ARGS = _ARGS;
-	using self_t = F;
-	f_wrapper(F&& f) : F(std::forward<F>(f)) {};
-	f_wrapper(F& f) : F(std::forward<F>(f)) {};
-};
-
 template<typename T1, typename...REST>
 auto assign_first(T1&& src, T1& dst, REST&&...){
 	dst = std::forward<T1>(src);
@@ -26,9 +17,30 @@ auto assign_last(T1&& src, REST&&..., T1& dst){
 	dst = std::forward<T1>(src);
 }
 
-template<typename consumer = VOID, parser P = VOID, typename ... OUTPUT>
+template<typename consumer, parser P>
 struct consume_p {
-	using ezpz_output = TLIST<OUTPUT...>;
+	using invoke_info = invoke_list<consumer,typename P::ezpz_output>;
+	using invoke_args = typename invoke_info::args;
+
+	static constexpr bool callable = !std::is_same_v<invoke_args,VOID>;
+	static constexpr bool ref_callable = std::is_same_v<
+		invoke_list<consumer,typename get_ref_list<
+				typename P::ezpz_output
+			>::type
+		>,
+		invoke_info
+	>;
+	static_assert(callable || !ref_callable,"consumer is callable with l-value references but not with r-value references");
+	static_assert(callable,"consumer is not callable by any of the available values");
+
+	using remaining_types = 
+		typename pop_n<invoke_args::size,typename P::ezpz_output>::type;
+	static constexpr bool returning_consumer = !std::is_same_v<typename invoke_info::ret,void>;
+	using added_types = t_if_else<returning_consumer,
+		  TLIST<typename invoke_info::ret>,
+		  TLIST<>
+	>::type;
+	using ezpz_output = typename added_types::append<remaining_types>;
 	using ezpz_prop = TLIST<dbg_inline>::append<typename get_prop_tag<P>::type>;
 
 	[[no_unique_address]] P parent;
@@ -43,13 +55,11 @@ struct consume_p {
 			undo(ctx,parent);
 		}
 	}
-	bool _parse(auto& ctx, OUTPUT&...up_args){
-		if constexpr (!std::is_same_v<typename consumer::RET,void>){
-			using hold_args = typename get_decay_list<
-					typename consumer::ARGS>::type;
-			using hold_type = typename instantiate_list<hold_normal,hold_args>::type;
-			hold_type hold;
-
+	bool _parse(auto& ctx, auto&...up_args){
+		using hold_args = typename get_decay_list<invoke_args>::type;
+		using hold_type = typename instantiate_list<hold_normal,hold_args>::type;
+		hold_type hold;
+		if constexpr (returning_consumer){
 			bool success = hold.apply([&](auto&, auto&...upper){
 				return [&](auto&...args){
 					return parse(ctx,parent,args...,upper...);
@@ -60,9 +70,6 @@ struct consume_p {
 			assign_first(hold.move_into(f),up_args...);
 			return true;
 		}else{
-			using hold_args = typename get_decay_list<typename consumer::ARGS>::type;
-			using hold_type = typename instantiate_list<hold_normal,hold_args>::type;
-			hold_type hold;
 			bool success = hold.apply([&](auto&...args){
 				return parse(ctx,parent,args...);
 			},up_args...);
@@ -381,37 +388,7 @@ requires (!std::is_function_v<std::remove_pointer_t<std::decay_t<F>>>)
 {
 	using P_t = std::decay_t<P>;
 	using F_t = std::decay_t<F>;
-	using invoke_info = invoke_list<F_t,typename P_t::ezpz_output>;
-	using invoke_args = typename invoke_info::args;
-	/* print_types<typename P::ezpz_output,invoke_args> asd; */
-	static constexpr bool callable = !std::is_same_v<invoke_args,VOID>;
-	if constexpr(!callable){
-		static constexpr bool not_ref_callable = std::is_same_v<
-			invoke_list<F_t,typename get_ref_list<
-					typename P_t::ezpz_output
-				>::type
-			>,
-			invoke_info
-		>;
-		static_assert(not_ref_callable,"consumer is callable with l-value references but not with r-value references");
-	}
-	static_assert(callable,"consumer is not callable by any of the available values");
-	using remaining_types = 
-		typename pop_n<invoke_args::size,typename P_t::ezpz_output>::type;
-	using F_TYPE = f_wrapper<F_t,typename invoke_info::ret,typename invoke_info::args>;
-	if constexpr (!std::is_same_v<typename invoke_info::ret,void> && !std::is_same_v<typename invoke_info::ret,VOID>){
-		using ret_args = 
-			typename append_list<TLIST<F_TYPE,P_t,typename invoke_info::ret>,remaining_types>::type;//TODO reorder return type to back
-		using ret_type = 
-			typename apply_list<consume_p,ret_args>::type;
-		return ret_type(F_TYPE{std::forward<F_t>(consumer)},std::forward<P>(p));
-	}else{
-		using ret_args = 
-			typename append_list<TLIST<F_TYPE,P_t>,remaining_types>::type;
-		using ret_type = 
-			typename apply_list<consume_p,ret_args>::type;
-		return ret_type(F_TYPE{std::forward<F_t>(consumer)},std::forward<P>(p));
-	}
+	return consume_p<F_t,P_t>{std::forward<F_t>(consumer), std::forward<P_t>(p)};
 }
 inline struct no_parser_p {
 	using ezpz_output = TLIST<>;
