@@ -7,6 +7,7 @@
 
 namespace ezpz{
 
+
 template<typename F, typename _RET, typename _ARGS>
 struct f_wrapper : public F {
 	using RET = _RET;
@@ -25,29 +26,27 @@ auto assign_last(T1&& src, REST&&..., T1& dst){
 	dst = std::forward<T1>(src);
 }
 
-template<typename unp = VOID, typename REM = VOID, typename ... UNPARSED>
+template<typename consumer = VOID, parser P = VOID, typename ... OUTPUT>
 struct consume_p {
-	using ezpz_output = TLIST<UNPARSED...>;
+	using ezpz_output = TLIST<OUTPUT...>;
+	using ezpz_prop = TLIST<dbg_inline>::append<typename get_prop_tag<P>::type>;
 
-	[[no_unique_address]] REM parent;
-	[[no_unique_address]] unp f;
+	[[no_unique_address]] P parent;
+	[[no_unique_address]] consumer f;
 
 	consume_p(auto&& f, auto&& parent) :
-		parent(std::forward<REM>(parent)),
-		f(std::forward<unp>(f))
+		parent(std::forward<P>(parent)),
+		f(std::forward<consumer>(f))
 	{};
 	void _undo(auto& ctx){
-		if constexpr ( !std::is_same_v<REM,VOID> ) {
+		if constexpr ( !std::is_same_v<P,VOID> ) {
 			undo(ctx,parent);
 		}
 	}
-	bool dbg_inline() {
-		return true;
-	}
-	bool _parse(auto& ctx, UNPARSED&...up_args){
-		if constexpr (!std::is_same_v<typename unp::RET,void>){
+	bool _parse(auto& ctx, OUTPUT&...up_args){
+		if constexpr (!std::is_same_v<typename consumer::RET,void>){
 			using hold_args = typename get_decay_list<
-					typename unp::ARGS>::type;
+					typename consumer::ARGS>::type;
 			using hold_type = typename instantiate_list<hold_normal,hold_args>::type;
 			hold_type hold;
 
@@ -61,7 +60,7 @@ struct consume_p {
 			assign_first(hold.move_into(f),up_args...);
 			return true;
 		}else{
-			using hold_args = typename get_decay_list<typename unp::ARGS>::type;
+			using hold_args = typename get_decay_list<typename consumer::ARGS>::type;
 			using hold_type = typename instantiate_list<hold_normal,hold_args>::type;
 			hold_type hold;
 			bool success = hold.apply([&](auto&...args){
@@ -98,7 +97,9 @@ struct and_p {
 	using R_ARGS = typename RHS::ezpz_output;
 	using ezpz_output = typename L_ARGS::template append<R_ARGS>;
 
-	using ezpz_prop = typename t_if_else<
+	static_assert(!contains<typename get_prop_tag<LHS>::type,always_false>::value, "[ezpz][and_p] LHS will always fail so RHS is never entered");
+
+	using ezpz_prop_success = typename t_if_else<
 		contains<typename get_prop_tag<LHS>::type, always_true>::value
 		&& contains<typename get_prop_tag<RHS>::type, always_true>::value,
 		TLIST<always_true>,
@@ -109,6 +110,7 @@ struct and_p {
 			TLIST<>
 		>::type
 	>::type;
+	using ezpz_prop = TLIST<dbg_inline>::append<ezpz_prop_success>;
 
 	[[no_unique_address]] dont_store_empty<LHS> lhs;
 	[[no_unique_address]] dont_store_empty<RHS> rhs;
@@ -141,15 +143,13 @@ struct and_p {
 		undo(ctx,lhs.get());
 	}
 
-	bool dbg_inline() const {
-		return true;
-	}
 };
 
 
 template<parser parser_t>
 struct forget {
 	using ezpz_output = TLIST<>;
+	using ezpz_prop = typename get_prop_tag<parser_t>::type::append<TLIST<dbg_inline>>;
 
 	[[no_unique_address]] parser_t p;
 
@@ -157,9 +157,6 @@ struct forget {
 	
 	bool _parse(auto& ctx){
 		return parse(ctx,p);
-	}
-	bool dbg_inline(){
-		return true;
 	}
 };
 template<parser T> 
@@ -286,11 +283,13 @@ struct or_p {
 		typename P1::ezpz_output,
 		typename P2::ezpz_output>::type;
 
+	static_assert(!contains<typename get_prop_tag<P1>::type, always_true>::value, "[ezpz][or_p|] left alternative always accepts, right side is never entered");
+
 	using ezpz_prop = typename t_if_else< 
 		contains<typename get_prop_tag<P2>::type,always_true>::value,
 		TLIST<always_true>,
 		TLIST<>
-	>::type;
+	>::type::append<TLIST<dbg_inline>>;
 
 	[[no_unique_address]] dont_store_empty<P1> p1;
 	[[no_unique_address]] dont_store_empty<P2> p2;
@@ -343,9 +342,6 @@ struct or_p {
 	bool _parse(auto& ctx, auto&... ret){
 		return attempt<P1,true>(p1.get(),ctx,ret...) || attempt<P2,false>(p2.get(),ctx,ret...);
 	}
-	bool dbg_inline() const{
-		return true;
-	}
 };
 
 template<parser P1, parser P2> 
@@ -353,7 +349,6 @@ parser auto operator|(P1&& p1, P2&& p2){
 	using P1_t = std::decay_t<P1>;
 	using P2_t = std::decay_t<P2>;
 
-	static_assert(!contains<typename get_prop_tag<P1_t>::type, always_true>::value, "[ezpz] [operator|] left alternative always accepts, right side is never entered");
 
 	return or_p<P1_t,P2_t>{std::forward<P1_t>(p1), std::forward<P2_t>(p2)};
 }
@@ -381,7 +376,7 @@ requires std::is_function_v<std::remove_pointer_t<decltype(func)>>
 		};
 }
 template<parser P, typename F>
-auto operator*(P&& p, F&& unparser)
+auto operator*(P&& p, F&& consumer)
 requires (!std::is_function_v<std::remove_pointer_t<std::decay_t<F>>>)
 {
 	using P_t = std::decay_t<P>;
@@ -398,9 +393,9 @@ requires (!std::is_function_v<std::remove_pointer_t<std::decay_t<F>>>)
 			>,
 			invoke_info
 		>;
-		static_assert(not_ref_callable,"unparser callback callable with l-value references but not with r-value references");
+		static_assert(not_ref_callable,"consumer is callable with l-value references but not with r-value references");
 	}
-	static_assert(callable,"unparser callback is not callable by any of the available values");
+	static_assert(callable,"consumer is not callable by any of the available values");
 	using remaining_types = 
 		typename pop_n<invoke_args::size,typename P_t::ezpz_output>::type;
 	using F_TYPE = f_wrapper<F_t,typename invoke_info::ret,typename invoke_info::args>;
@@ -409,13 +404,13 @@ requires (!std::is_function_v<std::remove_pointer_t<std::decay_t<F>>>)
 			typename append_list<TLIST<F_TYPE,P_t,typename invoke_info::ret>,remaining_types>::type;//TODO reorder return type to back
 		using ret_type = 
 			typename apply_list<consume_p,ret_args>::type;
-		return ret_type(F_TYPE{std::forward<F_t>(unparser)},std::forward<P>(p));
+		return ret_type(F_TYPE{std::forward<F_t>(consumer)},std::forward<P>(p));
 	}else{
 		using ret_args = 
 			typename append_list<TLIST<F_TYPE,P_t>,remaining_types>::type;
 		using ret_type = 
 			typename apply_list<consume_p,ret_args>::type;
-		return ret_type(F_TYPE{std::forward<F_t>(unparser)},std::forward<P>(p));
+		return ret_type(F_TYPE{std::forward<F_t>(consumer)},std::forward<P>(p));
 	}
 }
 inline struct no_parser_p {
@@ -426,8 +421,8 @@ inline struct no_parser_p {
 	}
 } no_parser;
 template<parser P, typename F> requires (not parser<F>)
-auto operator*(F&& unparser, P&& p) {
-	return no_parser*unparser+p;
+auto operator*(F&& consumer, P&& p) {
+	return no_parser*consumer+p;
 }
 static_assert(std::is_same_v<invoke_list<std::function<void(int&,int&)>,TLIST<int&,int&>>::args,TLIST<int&,int&>>);
 /* static_assert(std::is_same_v<invoke_list<std::function<void(int&&)>,TLIST<int>>::args,TLIST<int>>); */
@@ -462,10 +457,11 @@ auto make_rpo(auto&& f){
 	using parser = fr_parser_t<F_TYPE,ARGS...>;
 	return parser{std::forward<F_TYPE>(f)};
 }
-template<context_c context_t, typename...UNPARSED>
+template<context_c context_t, typename...OUTPUT>
 struct rpo {
-	using f_type = std::function<bool(context_t&,UNPARSED&...)>;
-	using ezpz_output = TLIST<UNPARSED...>;
+	using f_type = std::function<bool(context_t&,OUTPUT&...)>;
+	using ezpz_output = TLIST<OUTPUT...>;
+	using ezpz_prop = TLIST<dbg_inline>;
 
 	f_type f;
 
@@ -473,7 +469,7 @@ struct rpo {
 	rpo(const rpo&) = delete;
 	rpo(rpo&&) = delete;
 
-	template<typename F> requires std::invocable<F,context_t&,UNPARSED&...>
+	template<typename F> requires std::invocable<F,context_t&,OUTPUT&...>
 	explicit rpo(F&& f) {
 		this->f = std::forward<F>(f);
 	}
@@ -491,11 +487,8 @@ struct rpo {
 		};
 	}
 
-	bool _parse(context_t& ctx, UNPARSED&...up_args){
+	bool _parse(context_t& ctx, OUTPUT&...up_args){
 		return f(ctx,up_args...);
-	}
-	bool dbg_inline() const {
-		return true;
 	}
 };
 template<typename...ARGS>
@@ -518,6 +511,7 @@ template<parser parser>
 class ref_p {
 public:
 	using ezpz_output = typename parser::ezpz_output;
+	using ezpz_prop = typename get_prop_tag<parser>::type::append<TLIST<dbg_inline>>;
 
 	parser* p;
 	ref_p() = default;
@@ -532,9 +526,6 @@ public:
 	}
 	bool _parse(auto& ctx, auto&...args) {
 		return parse(ctx,*p,args...);
-	}
-	bool dbg_inline(){
-		return true;
 	}
 };
 

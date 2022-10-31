@@ -77,12 +77,9 @@ namespace ezpz{
 		}
 	}
 
-	bool is_dbg_inline(auto&p){
-		if constexpr( requires(decltype(p) p){p.dbg_inline();} ){
-			return p.dbg_inline();
-		}
-		return false;
-	}
+	template<typename P>
+	constexpr bool is_dbg_inline = contains<typename get_prop_tag<P>::type, dbg_inline>::value;
+
 	class basic_context : public min_context {
 	public:
 		using min_context::min_context;
@@ -141,7 +138,8 @@ namespace ezpz{
 		static constexpr int lo = 14;
 		static constexpr size_t ro = 7;
 		inline void notify_leave(auto& parser, bool success, int prev_pos) {
-			if(!debug || is_dbg_inline(parser)){
+			using parser_t = std::decay_t<decltype(parser)>;
+			if(!debug || is_dbg_inline<parser_t>){
 				return;
 			}
 
@@ -162,7 +160,8 @@ namespace ezpz{
 				<< std::endl;
 		}
 		int notify_enter(auto& parser) {
-			if(!debug || is_dbg_inline(parser)){
+			using parser_t = std::decay_t<decltype(parser)>;
+			if(!debug || is_dbg_inline<parser_t>){
 				return 0;
 			}
 

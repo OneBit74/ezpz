@@ -42,6 +42,7 @@ inline struct eoi_p {
 template<parser P>
 struct capture_p {
 	using ezpz_output = TLIST<std::string_view>;
+	using ezpz_prop = TLIST<dbg_inline>;
 
 	P parent;
 	capture_p(P&& op) : parent(std::move(op)) {}
@@ -56,9 +57,6 @@ struct capture_p {
 			sv = std::string_view{ctx.input.data()+start,length};
 		}
 		return ret;
-	}
-	bool dbg_inline(){
-		return true;
 	}
 };
 template<parser T>

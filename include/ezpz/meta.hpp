@@ -119,15 +119,6 @@ concept has_prop_tag = requires(){
 	typename T::ezpz_prop;
 };
 
-template<typename T>
-struct get_prop_tag {
-	using type = TLIST<>;
-};
-template<typename T> requires has_prop_tag<T>
-struct get_prop_tag<T> {
-	using type = typename T::ezpz_prop;
-};
-
 template<template<typename...> class T, typename L, typename...ARGS>
 struct apply_list { 
 	using type = typename apply_list<T,typename L::rest,ARGS...,typename L::type>::type;
@@ -326,5 +317,16 @@ template<typename T>
 constexpr bool is_optional = false;
 template<typename ...T>
 constexpr bool is_optional<std::optional<T...>> = true;
+
+struct dbg_inline; // parser property
+				   //
+template<typename T>
+struct get_prop_tag {
+	using type = TLIST<>;
+};
+template<typename T> requires has_prop_tag<T>
+struct get_prop_tag<T> {
+	using type = typename remove_t<typename T::ezpz_prop,dbg_inline>::type;
+};
 
 }

@@ -56,7 +56,7 @@ struct graph_context : public base {
 		using parser_t = std::decay_t<decltype(p)>;
 		bool wanted = show_all || contains<LIST,parser_t>::value;
 
-		if(is_dbg_inline(p) && !wanted) return 0;
+		if(is_dbg_inline<parser_t> && !wanted) return 0;
 		node new_node;
 		new_node.invisible = !wanted;
 		new_node.label = type_name<parser_t>();
@@ -68,7 +68,7 @@ struct graph_context : public base {
 		using parser_t = std::decay_t<decltype(p)>;
 		bool wanted = show_all || contains<LIST,parser_t>::value;
 
-		if(is_dbg_inline(p) && !wanted) return;
+		if(is_dbg_inline<parser_t> && !wanted) return;
 		auto cur = std::move(nodes.top());
 		nodes.pop();
 		cur.success = success;
