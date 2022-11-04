@@ -110,3 +110,55 @@ TEST(helper,dynamic_ret){
 /* 		} */
 /* 	},parse_error); */
 /* } */
+
+TEST(helper, merge_1_type_2_outputs){
+	auto p = merge(decimal<int> + " " + decimal<int>);
+	int val = 0;
+	EXPECT_TRUE(parse("1 2",p,val));
+	EXPECT_EQ(val,2);
+	val = 0;
+
+	EXPECT_FALSE(parse("1",p,val));
+	EXPECT_EQ(val,1);
+}
+
+TEST(helper, merge_1_type_3_outputs){
+	auto p = merge(decimal<int> + " " + decimal<int> + " " + decimal<int>);
+	int val = 0;
+	EXPECT_TRUE(parse("1 2 3",p,val));
+	EXPECT_EQ(val,3);
+}
+TEST(helper, merge_2_types_4_outputs){
+	auto p = merge(decimal<int> + " " + decimal<float> + " " + decimal<int> + " " + decimal<float>);
+	int i = 0;
+	float f = 0;
+	EXPECT_TRUE(parse("1 2.3 3 4.0",p,i,f));
+	EXPECT_EQ(i,3);
+	EXPECT_EQ(f,4.0f);
+
+	EXPECT_FALSE(parse("1 2.0",p,i,f));
+	EXPECT_EQ(i,1);
+	EXPECT_EQ(f,2.0f);
+}
+TEST(helper, agg_sum){
+	auto add = [](int& agg, int val){
+		agg += val;
+	};
+	auto sum = merge(decimal<int> + any(ws+"+"+ws+agg(decimal<int>,add)));
+
+	int total = 0;
+	EXPECT_TRUE(parse("1+2 + 3+ 4 +5",sum,total));
+	EXPECT_EQ(total,15);
+}
+TEST(helper, agg_into_vector){
+	auto push = [](std::vector<int>& agg, int val){
+		agg.push_back(val);
+	};
+	auto element = agg_into<std::vector<int>>(decimal<int>,push);
+	auto list = merge(element+ any(ws+","+ws+element));
+
+	std::vector<int> result;
+	EXPECT_TRUE(parse("1,2 , 3, 4 ,5",list,result));
+	std::vector<int> expected{1,2,3,4,5};
+	EXPECT_EQ(result,expected);
+}

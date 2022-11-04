@@ -243,6 +243,10 @@ struct hold_normal {
 	auto apply(F&& f){
 		return std::apply(f,data);
 	}
+	template<typename F, size_t...Is>
+	auto apply_idx(F&& f){
+		return f(data.template get<Is>()...);
+	}
 };
 template<typename FIRST=void, typename ... ARGS>
 struct hold {
@@ -330,5 +334,51 @@ struct get_prop_tag<T> {
 	using type = typename remove_t<typename T::ezpz_prop,dbg_inline>::type;
 	using raw = typename T::ezpz_prop;
 };
+
+template<typename L, typename T>
+struct index_in_list;
+
+template<typename L, typename T> requires std::same_as<typename L::type,T>
+struct index_in_list<L,T> {
+	static constexpr bool found = true;
+	static constexpr size_t index = 0;
+};
+template<typename L, typename T> requires (!std::same_as<typename L::type,T>)
+struct index_in_list<L,T> {
+	using lower = index_in_list<typename L::rest, T>;
+	static constexpr bool found = lower::found;
+	static constexpr size_t index = 1+lower::index;
+};
+template<typename T>
+struct index_in_list<TLIST<>,T> {
+	static constexpr bool found = false;
+};
+
+template<size_t...Is>
+struct idx_seq {};
+
+template<size_t i, size_t ... Is>
+idx_seq<i,Is...> append(idx_seq<Is...>){return {};}
+
+template<typename L1, typename L2>
+struct index_L_in_R {
+	static constexpr size_t index = index_in_list<L2,typename L1::type>::index;
+	using rest = index_L_in_R<typename L1::rest,L2>;
+	using ix = decltype(append<index>(typename rest::ix{}));
+};
+template<typename T, typename L2>
+struct index_L_in_R<TLIST<T>,L2> {
+	static constexpr size_t index = index_in_list<L2,T>::index;
+	using ix = idx_seq<index>;
+};
+
+template<size_t index>
+decltype(auto) get(auto&& arg, auto&&...ARGS){
+	if constexpr(index == 0){
+		return arg;
+	}else {
+		return get<index-1>(ARGS...);
+	}
+}
 
 }

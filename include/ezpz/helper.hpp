@@ -351,4 +351,85 @@ auto retd(auto&&...vals){
 	return retd_p<std::decay_t<decltype(vals)>...>(std::forward<decltype(vals)>(vals)...);
 }
 
+template<parser P>
+struct merge_p {
+	using ezpz_output = typename dedup<typename P::ezpz_output>::type;
+	using ezpz_prop = typename get_prop_tag<P>::type;
+
+	using idxs = index_L_in_R<typename P::ezpz_output,ezpz_output>::ix;
+	static_assert(P::ezpz_output::size > 1, "[ezpz][merge_p] not enough output to merge. need at least 2");
+	static_assert(P::ezpz_output::size > ezpz_output::size, "[ezpz][merge_p] merged parser does not contain any duplicate types, therefore no outputs can be merged");
+
+	[[no_unique_address]] P p;
+	merge_p(auto&& p) : p(std::forward<P>(p)) {}
+
+	bool _parse(auto& ctx, auto&...ARGS) {
+		return [&]<size_t...Is>(idx_seq<Is...>){
+			return parse(ctx,p,get<Is>(ARGS...)...);
+		}(idxs{});
+	}
+};
+
+template<parser P>
+auto merge(P&& p){
+	using P_t = std::decay_t<P>;
+	return merge_p<P_t>(std::forward<P_t>(p));
+}
+
+template<typename T, parser P, typename F>
+struct agg_into_p {
+	using ezpz_output = TLIST<T>;
+	using ezpz_prop = typename get_prop_tag<P>::type;
+
+	[[no_unique_address]] P p;
+	[[no_unique_address]] F f;
+
+
+	bool _parse(auto& ctx, T& t){
+		using hold_t = typename apply_list<hold_normal, typename P::ezpz_output>::type;
+		hold_t hold;
+		return hold.apply([&](auto&...P_ARGS){
+			bool ret = parse(ctx,p,P_ARGS...);
+			f(t,std::move(P_ARGS)...);
+			return ret;
+		});
+	}
+
+};
+
+template<parser P, typename F>
+struct agg_p {
+	using ezpz_output = typename P::ezpz_output;
+	using ezpz_prop = typename get_prop_tag<P>::type;
+
+	[[no_unique_address]] P p;
+	[[no_unique_address]] F f;
+
+
+	bool _parse(auto& ctx, auto&...ARGS){
+		using hold_t = typename apply_list<hold_normal, typename P::ezpz_output>::type;
+		hold_t hold;
+		return hold.apply([&](auto&...P_ARGS){
+			bool ret = parse(ctx,p,P_ARGS...);
+			f(ARGS...,std::move(P_ARGS)...);
+			return ret;
+		});
+	}
+
+};
+
+template<parser P, typename F>
+auto agg(P&& p, F&& f){
+	using P_t = std::decay_t<P>;
+	using F_t = std::decay_t<F>;
+	return agg_p<P_t,F_t>{std::forward<P_t>(p), std::forward<F_t>(f)};
+}
+
+template<typename T, parser P, typename F>
+auto agg_into(P&& p, F&& f){
+	using P_t = std::decay_t<P>;
+	using F_t = std::decay_t<F>;
+	return agg_into_p<T,P_t,F_t>{std::forward<P_t>(p), std::forward<F_t>(f)};
+}
+
 }

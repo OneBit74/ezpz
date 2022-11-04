@@ -2,32 +2,6 @@
 #include <gtest/gtest.h>
 using namespace ezpz;
 
-TEST(quantifiers,reduce){
-	std::vector<char> result;
-	EXPECT_TRUE(parse("1234",any(capture(single)).reduce(
-			[](){return std::vector<char>{};},
-			[](auto& vec, auto sv){vec.push_back(sv[0]);})
-			, result
-		));
-	ASSERT_EQ(result.size(), 4);
-	EXPECT_EQ(result[0], '1');
-	EXPECT_EQ(result[1], '2');
-	EXPECT_EQ(result[2], '3');
-	EXPECT_EQ(result[3], '4');
-}
-TEST(quantifiers,reduce2){
-	std::vector<char> result;
-	EXPECT_TRUE(parse("1234",reduce(min<2>(capture(single)),
-			[](){return std::vector<char>{};},
-			[](auto& vec, auto sv){vec.push_back(sv[0]);})
-			, result
-		));
-	ASSERT_EQ(result.size(), 4);
-	EXPECT_EQ(result[0], '1');
-	EXPECT_EQ(result[1], '2');
-	EXPECT_EQ(result[2], '3');
-	EXPECT_EQ(result[3], '4');
-}
 TEST(quantifiers,any){
 	{
 		basic_context ctx("aaaa");

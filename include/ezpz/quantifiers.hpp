@@ -15,94 +15,21 @@ parser auto plus(T&& rhs) {
 	});
 }
 
-template<parser P, std::invocable VAL_F, typename AGG_F>
-struct agg_any_p {
-	using RET = std::invoke_result_t<VAL_F>;
-	using ezpz_output = TLIST<RET>;
-	
-	[[no_unique_address]] P p;
-	[[no_unique_address]] VAL_F v;
-	[[no_unique_address]] AGG_F f;
-
-	agg_any_p(auto&& p, auto&& v, auto&& f) :
-		p(std::forward<P>(p)),
-		v(std::forward<VAL_F>(v)),
-		f(std::forward<AGG_F>(f))
-	{}
-
-	bool _parse(auto& ctx, RET& ret){
-		ret = v();
-		using hold_t = typename apply_list<hold_normal,typename P::ezpz_output>::type;
-		while(!ctx.done()){
-			hold_t hold;
-			bool success = hold.apply([&](auto&...args){
-				return parse(ctx,p,args...);
-			});
-			if(!success)break;
-
-			hold.apply([&](auto&...result){
-				using constraint = typename apply_list<
-					std::is_invocable_r,
-					typename append_list<
-						TLIST<RET,AGG_F,RET>,
-						typename P::ezpz_output>::type
-				>::type;
-				if constexpr (constraint::value){
-					ret = f(ret,result...);
-				}else{
-					f(ret,result...);
-				}
-			});
-		}
-		
-		return true;
-	}
-};
-struct empty_aggregator {
-	inline void operator()(){
-	};
-};
 template<parser T>
 struct any_p {
-	using ezpz_output = TLIST<>;
-	using INNER_RET = typename T::ezpz_output;
+	using ezpz_output = typename T::ezpz_output;
 	using ezpz_prop = TLIST<always_true>;
 
 	static_assert(!get_prop_tag<T>::type::template contains<always_true>,
-			"[ezpz][any_p] inner parser never fails."
-			" This is equivalent to a while true statement");
+			"[ezpz][any_p] inner parser never fails. "
+			"This is equivalent to a while true statement");
 
 	[[no_unique_address]] T p;
 	any_p(auto&& p) : p(std::forward<T>(p)) {}
 
-	bool _parse(auto& ctx){
-		while(parse_or_undo(ctx,p)){}
+	bool _parse(auto& ctx, auto&...ARGS){
+		while(parse_or_undo(ctx,p,ARGS...)){}
 		return true;
-	}
-	bool _aggregate(auto& ctx, auto&& agg){
-		while(parse_or_undo(ctx,p*agg)){}
-		return true;
-	}
-
-	template<typename VAL_F, typename AGG_F> 
-	auto reduce(VAL_F base, AGG_F comb) {
-		using VAL_F_t = std::decay_t<VAL_F>;
-		using AGG_F_t = std::decay_t<AGG_F>;
-		if constexpr(std::invocable<VAL_F_t>){
-			return agg_any_p<T,VAL_F_t,AGG_F_t>{
-				std::forward<T>(p),
-				std::forward<VAL_F_t>(base),
-				std::forward<AGG_F_t>(comb)};
-		}else{
-			auto hold_f = [base=std::forward<VAL_F_t>(base)](){
-				return base;
-			};
-			using hold_f_t = decltype(hold_f);
-			return agg_any_p<T,hold_f_t,AGG_F_t>{
-				std::forward<T>(p),
-				std::move(hold_f),
-				std::forward<AGG_F_t>(comb)};
-		}
 	}
 };
 template<parser T>
@@ -230,13 +157,10 @@ struct max_p_impl {
 	max_p_impl(auto&& p, auto&& count_f) : p(std::forward<P>(p)), count_f(std::forward<count_f_t>(count_f))
 	{}
 	bool _parse(auto& ctx){
-		return _aggregate(ctx,[](auto&&...){});
-	}
-	bool _aggregate(auto& ctx, auto&& agg){
 		int counter = 0;
 		while(true){
 			auto start = ctx.getPosition();
-			if(!parse(ctx,p*agg)){
+			if(!parse(ctx,p)){
 				return true;
 			}else if (counter >= count_f()) {
 				ctx.setPosition(start);
@@ -290,13 +214,10 @@ struct min_p_impl {
 	{}
 	
 	bool _parse(auto& ctx){
-		return _aggregate(ctx,[](auto&&...){});
-	}
-	bool _aggregate(auto& ctx, auto&& agg){
 		int counter = 0;
 		while(true){
 			auto start = ctx.getPosition();
-			if(!parse(ctx,p*agg)){
+			if(!parse(ctx,p)){
 				if(counter < count_f()){
 					ctx.setPosition(start);
 				}
@@ -333,54 +254,5 @@ parser auto min(int count, parser auto&& parser){
 	return min_p<P_t,-1>(std::forward<P_t>(parser),count);
 }
 
-
-template<typename P, typename V, typename A>
-struct reduce_p {
-	using RET = std::invoke_result_t<V>;
-	using ezpz_output = TLIST<RET>;
-	using ezpz_prop = typename get_prop_tag<P>::type;
-
-	static_assert(!std::same_as<TLIST<>,typename P::INNER_RET>, "[ezpz][reduce_p] no return values available to aggregate over");
-
-	[[no_unique_address]] P p;
-	[[no_unique_address]] V v;
-	[[no_unique_address]] A a;
-
-	reduce_p(auto&& p, auto&& v, auto&& a) :
-		p(std::forward<P>(p)),
-		v(std::forward<V>(v)),
-		a(std::forward<A>(a))
-	{}
-
-	bool _parse(auto& ctx, RET& ret){
-		ret = v();
-		return p._aggregate(ctx,
-				[&]<typename...ARGS> 
-				requires std::same_as<typename get_decay_list<TLIST<ARGS...>>::type,typename P::INNER_RET>
-				(ARGS&&...args){
-			using constraint = typename apply_list<
-				std::is_invocable_r,
-				TLIST<RET,A,RET,ARGS&&...>
-			>::type;
-			if constexpr (constraint::value){
-				ret = a(ret,std::move(args)...);
-			}else{
-				//TODO check invocable
-				a(ret,std::move(args)...);
-			}
-		});
-	}
-};
-auto reduce(parser auto&& aggregatable_parser, std::invocable auto&& val_f, auto&& comb_f){
-	using P_t = std::decay_t<decltype(aggregatable_parser)>;
-	using V_t = std::decay_t<decltype(val_f)>;
-	using A_t = std::decay_t<decltype(comb_f)>;
-
-	return reduce_p<P_t,V_t,A_t>{
-		std::forward<P_t>(aggregatable_parser),
-		std::forward<V_t>(val_f),
-		std::forward<A_t>(comb_f)
-	};
-}
 
 }
