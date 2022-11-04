@@ -47,7 +47,7 @@ ezpz::parse_or_undo(ctx,parser,output...)
 |Core|[operator+](#operatorp1p2--and_p) [operator\|](#operatorp1p2--or_p) [operator!](#operatorp1--forget) [operator\*](#operatorp1-f--consume_p) [ref(p)](#refp1) [rpo<>](#rpoctxoutputs-and-polymorphic_rpoctxoutputs) [make_rpo<>()](#make_rpooutputsf) 
 |Matcher|[text_p](#text_p) [text_ci_p](#text_ci_p) [number<num_t,base>](#numbernum_t-base--decimalnum_t) [eoi](#eoi) [ws](#ws) [string](#string) [alpha](#alpha) [digit](#digit) [graph_letter](#graph_letter) [single](#single) [token(t)](#tokenx) [accept_if](#accept_iff)
 |Consumer| [assign(dst)](#assigndst) [insert(dst)](#insertdst) [print_all](#print_all) [cast\<T\>](#cast) [into\<T\>](#into)
-|Quantifers| [any(p)](#anyp1) [plus(p)](#plusp1) [notf(p)](#notfp1) [peek(p)](#peekp1) [optional(p)](#optionalp1) [min_p](#minamountp1-minamountp1) [max_p](#maxamountp1-maxamountp1) [times](#timesamountp1)
+|Quantifers| [any(p)](#anyp1) [plus(p)](#plusp1) [notf(p)](#notfp1) [peek(p)](#peekp1) [optional(p)](#optionalp1) [min_p](#minamountp1-minamountp1) [max_p](#maxamountp1-maxamountp1) [times](#timesamountp1-timesamountp1)
 |Helper| [recover(p)](#recoverp1) [merge(p)](#mergep1) [agg(p,f)](#aggp1f-and-agg_intotp1f) [print("")](#printtext) [capture(p)](#capturep1) [ret<...>](#retvals) 
 |Context| [min_context](#min_context) [basic_context](#basic_context) [forward_range_context<R>](#forward_range_context)
 |Extra| [graph_context](#graph_contextctx_t-t) [cin_context](#cin_context)
@@ -154,8 +154,8 @@ Parses p1 zero or one time. The output type is std::optional<...> for a single o
 Parses p1 $amount to infinity many times. Returns the same output as p1.
 ### **max\<amount\>(p1) max(amount,p1)**
 Parses p1 zero to $amount many times. Returns the same output as p1.
-### **times(amount,p1)**
-Parses p1 exactly $amount many times.
+### **times\<amount\>(p1) times(amount,p1)**
+Parses p1 exactly $amount many times. Returns the same output as p1.
 
 ---
 ## Helper
@@ -185,8 +185,9 @@ merge(decimal<int>+" "+decimal<int>)
 ```
 This parser outputs a single int. If a parse is successful the final output value will be that of the parser that last produced.
 ### **agg(p1,f)** and **agg_into\<T\>(p1,f)**
-These are usefull in conjunction with **merge**. **agg** outputs the same as f. f should be callable with the outputs of p1 twice. First f will be given as arguments the aggregate result of this parse and then the result of p1. **agg_into** outputs a value of T. f should be callable with T and the output values of p1. Example:
+These parsers are intended to buildup aggregate values. They are usefull in conjunction with **merge**. **agg** outputs the same as p1. f should be callable with the outputs of p1 twice. First f will be given as arguments the aggregate result of this parse and then the result of p1. **agg_into** outputs a value of T. f should be callable with T and the output values of p1. Example:
 ```c++
+// summing over numbers
 auto add = [](int& agg, int val){
     agg += val;
 };
@@ -197,6 +198,7 @@ EXPECT_EQ(total,15);
 ```
 
 ```c++
+// building a list of integers
 auto push = [](std::vector<int>& agg, int val){
     agg.push_back(val);
 };

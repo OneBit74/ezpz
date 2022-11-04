@@ -85,8 +85,11 @@ TEST(quantifiers,not){
 }
 TEST(quantifiers,times){
 	EXPECT_TRUE(parse("aaa",times(3,"a"_p)+eoi));
+	EXPECT_TRUE(parse("aaa",times<3>("a"_p)+eoi));
 	EXPECT_FALSE(parse("aaaa",times(3,"a"_p)+eoi));
+	EXPECT_FALSE(parse("aaaa",times<3>("a"_p)+eoi));
 	EXPECT_FALSE(parse("aa",times(3,"a"_p)+eoi));
+	EXPECT_FALSE(parse("aa",times<3>("a"_p)+eoi));
 }
 TEST(quantifiers,max){
 	EXPECT_FALSE(parse("aaa",max(2,"a"_p)+eoi));

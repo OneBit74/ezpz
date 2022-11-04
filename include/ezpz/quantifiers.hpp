@@ -137,14 +137,44 @@ struct constant_int_holder {
 	}
 };
 
-auto times(int amount,auto&& parser){
-	return make_rpo([=](auto& ctx) mutable {
-			for(int i = 0; i < amount; ++i){
-				if(!parse(ctx,parser))return false;
-			}
-			return true;
+template<size_t amount, parser P>
+struct timesc_p {
+	using ezpz_output = typename P::ezpz_output;
+	using ezpz_prop = typename get_prop_tag<P>::type;
+
+	[[no_unique_address]] P p;
+
+	bool _parse(auto& ctx, auto&...args){
+		for(size_t i = 0; i < amount; ++i){
+			if(!parse(ctx,p,args...))return false;
 		}
-	);
+		return true;
+	}
+};
+template<parser P>
+struct timesd_p {
+	using ezpz_output = typename P::ezpz_output;
+	using ezpz_prop = typename get_prop_tag<P>::type;
+
+	size_t count = 0;
+	[[no_unique_address]] P p;
+
+	bool _parse(auto& ctx, auto&...args){
+		for(size_t i = 0; i < count; ++i){
+			if(!parse(ctx,p,args...))return false;
+		}
+		return true;
+	}
+};
+template<size_t amount, typename P>
+auto times(P&& parser){
+	using P_t = std::decay_t<P>;
+	return timesc_p<amount,P_t>(std::forward<P_t>(parser));
+}
+template<typename P>
+auto times(int amount,P&& parser){
+	using P_t = std::decay_t<P>;
+	return timesd_p<P_t>(amount,std::forward<P_t>(parser));
 }
 template<parser P, typename count_f_t>
 struct max_p_impl {
