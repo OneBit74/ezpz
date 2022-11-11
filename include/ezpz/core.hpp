@@ -221,8 +221,7 @@ struct or_helper {
 
 template<typename...A, typename...B> 
 struct or_helper<TLIST<std::variant<A...>>,TLIST<std::variant<B...>>> {
-	using type = typename instantiate_list<std::variant,typename dedup<TLIST<A...,B...>>::type>::type;
-	print_types<type,A...,B...> asd;
+	using type = TLIST<typename instantiate_list<std::variant,typename dedup<TLIST<A...,B...>>::type>::type>;
 };
 template<typename T> requires (!std::same_as<T,TLIST<>>)
 struct or_helper<T,TLIST<>> {

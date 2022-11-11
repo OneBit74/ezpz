@@ -21,6 +21,16 @@ namespace consume_with_function_ptr {
 		EXPECT_EQ(res,4);
 	}
 }
+TEST(core, double_variant){
+	auto v1 = decimal<int> | capture("abc"_p);
+	auto v2 = decimal<float> | capture("abc"_p);
+	auto p = v1 | v2;
+	std::variant<int,std::string_view,float> ret;
+
+	EXPECT_TRUE(parse("abc",p,ret));
+	ASSERT_TRUE(holds_alternative<std::string_view>(ret));
+	EXPECT_EQ(get<std::string_view>(ret),"abc");
+}
 TEST(core, multi_returning_alternative){
 	auto parser = 
 		"a"_p*ret<int8_t(2)>

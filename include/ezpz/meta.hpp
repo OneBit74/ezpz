@@ -300,13 +300,23 @@ struct remove_t<TLIST<>,E> {
 	using type = TLIST<>;
 };
 
+/* template<typename L> */
+/* struct dedup { */
+/* 	using inner = typename dedup<typename L::rest>::type; */
+/* 	using type = typename t_if_else< */
+/* 		contains<inner,typename L::type>::value, */
+/* 		inner, */
+/* 		typename TLIST<typename L::type>::template append<inner> */
+/* 	>::type; */
+/* }; */
+/* template<> */
+/* struct dedup<TLIST<>> { */
+/* 	using type = TLIST<>; */
+/* }; */
 template<typename L>
 struct dedup {
-	using inner = typename dedup<typename L::rest>::type;
-	using type = typename t_if_else<
-		contains<inner,typename L::type>::value,
-		inner,
-		typename TLIST<typename L::type>::template append<inner>
+	using type = typename append_list<TLIST<typename L::type>,
+		typename dedup<typename remove_t<L,typename L::type>::type>::type
 	>::type;
 };
 template<>
