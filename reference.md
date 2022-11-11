@@ -15,7 +15,7 @@ The output is defined in a type list in a using declaration of ezpz_output. The 
 As you can see, **ezpz** does not lock you into a specific way of writing your parsers. You can always opt-out and use a handwritten parser for a part of your grammar or even a completely different parsing library.
 
 ### **What is a context?**
-A context defines the token type and manages the token stream that parsers consume. Furthermore, a context can handle all sorts of tasks that concern the entire parsing process. For example a context can issue error messages, hold some kind of semi global state or take a look at [include/ezpz/extra/graph_context](), which prints the parse tree in the [*dot attributed graph language*](https://graphviz.org/doc/info/lang.html).
+A context defines the token type and manages the token stream that parsers consume. Furthermore, a context can handle all sorts of tasks that concern the entire parsing process. For example, a context can issue error messages, hold some kind of semi global state, or take a look at [graph_context](#graph_contextctx_t-t), which visualizes the parse tree.
 
 The interface of a context in ezpz can not be defined strictly, certain parts of the library use certain interfaces others don't. If you do not use certain library features, you won't have to specify those.
 - ctx.getPosition() -> pos: the current position in the token stream
@@ -179,13 +179,13 @@ struct candidate {
 You can modify the behavior of recover by providing a type configuration. (**TODO**)
 
 ### **merge(p1)**
-If p1 has multiple outputs of the same type T, the resulting parser will have only one output of type T. The returning parsers that produced Ts, will be given a reference to the same T. For example ...
+If p1 has multiple outputs of the same type T, the resulting parser will have only one output of type T. The returning parsers that produced Ts, will be given a reference to the same T. For multiple outputs, the order of outputs will be deduplicated left to right. Here is an example with two int outputs that will be merged into a single int output. 
 ```c++
 merge(decimal<int>+" "+decimal<int>)
 ```
-This parser outputs a single int. If a parse is successful the final output value will be that of the parser that last produced.
+Since the output of these parsers do not aggregate into the merged output, the second decimal\<int\> will overwrite the output of the first parser.
 ### **agg(p1,f)** and **agg_into\<T\>(p1,f)**
-These parsers are intended to buildup aggregate values. They are usefull in conjunction with **merge**. **agg** outputs the same as p1. f should be callable with the outputs of p1 twice. First f will be given as arguments the aggregate result of this parse and then the result of p1. **agg_into** outputs a value of T. f should be callable with T and the output values of p1. Example:
+These parsers are intended to buildup aggregate values. They are usefull in conjunction with **merge**. **agg** outputs the same as p1. f should be callable with the outputs of p1 twice. First f will be given as arguments the aggregate result of this parse and then the result of p1. **agg_into** outputs a value of T. f should be callable with T& and the output values of p1. Example:
 ```c++
 // summing over numbers
 auto add = [](int& agg, int val){
@@ -231,5 +231,6 @@ This context derives from the provided ctx_t. It has a print() interface, which 
 1. graph_option_show_failures: when this type is provided the parse tree will also contain nodes of failed parse attempts
 2. graph_option_show_all: when this type is provided you dont have to provide any parser types yourself. Every parser is recorded.
 
+When you have finished parsing with this context. Call the print member function. The text output can be given to [dot](https://linux.die.net/man/1/dot), which does the actual drawing of the graph.
 ### **cin_context**
 This context buffers characters from std::cin.
