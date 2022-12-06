@@ -5,6 +5,16 @@
 #include <stdexcept>
 
 namespace ezpz{
+template<parser P>
+inline auto description(P& p){
+	if constexpr(requires(){P::_description;}) {
+		return p._description;
+	}else if constexpr(requires(P p){p._description();}) {
+		return p._description();
+	}else {
+		return type_name<P>();
+	}
+}
 
 struct print_p {
 	using ezpz_output = TLIST<>;
@@ -194,7 +204,7 @@ struct recover_p {
 				auto prev = ctx.getPosition();
 				recover_config::perform_secondary_parse(ctx);
 
-				candidates.emplace_back(std::string{description(parser)},goodness, prev_pos, ctx.getPosition());
+				candidates.emplace_back(std::string{ezpz::description(parser)},goodness, prev_pos, ctx.getPosition());
 				ctx.setPosition(prev);
 			};
 			if constexpr(nested_recover){
@@ -390,7 +400,7 @@ struct agg_into_p {
 		hold_t hold;
 		return hold.apply([&](auto&...P_ARGS){
 			bool ret = parse(ctx,p,P_ARGS...);
-			f(t,std::move(P_ARGS)...);
+			if(ret)f(t,std::move(P_ARGS)...);
 			return ret;
 		});
 	}
@@ -409,11 +419,25 @@ struct agg_p {
 	bool _parse(auto& ctx, auto&...ARGS){
 		using hold_t = typename apply_list<hold_normal, typename P::ezpz_output>::type;
 		hold_t hold;
-		return hold.apply([&](auto&...P_ARGS){
-			bool ret = parse(ctx,p,P_ARGS...);
-			f(ARGS...,std::move(P_ARGS)...);
-			return ret;
-		});
+		using result = std::invoke_result<decltype(f),decltype(ARGS)...,decltype(ARGS)...>;
+		if constexpr(!std::same_as<typename result::type, void>){
+			static_assert(sizeof...(ARGS) == 1, "[ezpz][agg] aggregation with a returning callback can only aggregate to a single output, but the parser has multiple outputs. Use parameters instead.");
+			static_assert(std::same_as<typename ezpz_output::type, typename result::type>, "[ezpz][agg] return-type of returning aggregation callback must be same as the parser output");
+			return hold.apply([&](auto&...P_ARGS){
+				bool ret = parse(ctx,p,P_ARGS...);
+				if(ret)assign_first(f(ARGS...,std::move(P_ARGS)...),ARGS...);
+				return ret;
+			});
+		}else{
+			return hold.apply([&](auto&...P_ARGS){
+				bool ret = parse(ctx,p,P_ARGS...);
+				using first = std::decay_t<typename ezpz_output::type>;
+				using invocable_with_refref = typename apply_list<std::is_invocable,typename TLIST<decltype(f),first&&>::template append<ezpz_output>>::type;
+				static_assert(!invocable_with_refref::value, "[ezpz][agg] callback must take aggregation output as an l-value reference");
+				if(ret)f(ARGS...,std::move(P_ARGS)...);
+				return ret;
+			});
+		}
 	}
 
 };

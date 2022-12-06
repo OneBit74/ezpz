@@ -179,7 +179,6 @@ namespace ezpz{
 		}
 		return false;
 	});
-	inline parser auto string = "\"" + any(notf("\"")) + "\"";
 
 	template<typename num_t, int base> 
 	struct number_p{
@@ -274,6 +273,7 @@ namespace ezpz{
 		return accept_if_p<F_t>(std::forward<F_t>(f));
 	}
 	inline auto single = accept_if([](const auto&){return true;});
+	inline parser auto string = "\"" + any(notf("\"")+single) + "\"";
 
 	template<typename F>
 	auto accept_if_equal(F&& f){
@@ -333,14 +333,4 @@ namespace ezpz{
 
 	static_assert(is_instantiation<consume_p, decltype(""_p*[](){})>);
 
-	template<parser P>
-	inline auto description(P& p){
-		if constexpr(requires(){P::_description;}) {
-			return p._description;
-		}else if constexpr(requires(P p){p._description();}) {
-			return p._description();
-		}else {
-			return type_name<P>();
-		}
-	}
 }

@@ -11,6 +11,10 @@ TEST(matcher,accept_if){
 
 	EXPECT_TRUE(parse(ctx,odd+even+odd+even+odd+even+eoi));
 }
+TEST(matcher,string){
+	EXPECT_TRUE(parse("\"this is a string\"",string+eoi));
+	EXPECT_FALSE(parse("this is not a string",string+eoi));
+}
 TEST(matcher,ws){
 	basic_context ctx;
 	ctx.input = "   \t \t \n\t\n  ";

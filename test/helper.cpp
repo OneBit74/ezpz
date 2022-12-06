@@ -162,3 +162,11 @@ TEST(helper, agg_into_vector){
 	std::vector<int> expected{1,2,3,4,5};
 	EXPECT_EQ(result,expected);
 }
+TEST(helper, agg_unsuccessful_parse_means_no_cb_call){
+	int i = 0;
+	EXPECT_FALSE(parse("",agg(decimal<int>,[&](int&,int){i = 2;})));
+	EXPECT_EQ(i,0);
+	i = 0;
+	EXPECT_FALSE(parse("",agg_into<int>(decimal<float>,[&](int&,float){i = 2;})));
+	EXPECT_EQ(i,0);
+}

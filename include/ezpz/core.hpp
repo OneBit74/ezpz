@@ -8,14 +8,6 @@
 namespace ezpz{
 
 
-template<typename T1, typename...REST>
-auto assign_first(T1&& src, T1& dst, REST&&...){
-	dst = std::forward<T1>(src);
-}
-template<typename T1, typename...REST>
-auto assign_last(T1&& src, REST&&..., T1& dst){
-	dst = std::forward<T1>(src);
-}
 
 template<typename consumer, parser P>
 struct consume_p {

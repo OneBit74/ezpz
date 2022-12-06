@@ -6,13 +6,28 @@
 namespace ezpz{
 
 template<parser T>
+struct plus_p {
+	using ezpz_output = typename T::ezpz_output;
+	using ezpz_prop = TLIST<always_true>;
+
+	static_assert(!get_prop_tag<T>::type::template contains<always_true>,
+			"[ezpz][plus_p] inner parser never fails. "
+			"This is equivalent to a while true statement");
+
+	[[no_unique_address]] T p;
+	plus_p(auto&& p) : p(std::forward<T>(p)) {}
+
+	bool _parse(auto& ctx, auto&...ARGS){
+		if(!parse(ctx,p,ARGS...))return false;
+		while(parse_or_undo(ctx,p,ARGS...)){}
+		return true;
+	}
+};
+
+template<parser T>
 parser auto plus(T&& rhs) {
 	using TT = std::decay_t<T>;
-	return make_rpo([r=std::forward<TT>(rhs)](auto& ctx) mutable {
-		if(!parse(ctx,r))return false;
-		while(parse_or_undo(ctx,r)){}
-		return true;
-	});
+	return plus_p<TT>{std::forward<TT>(rhs)};
 }
 
 template<parser T>
@@ -87,11 +102,12 @@ struct optional_p {
 			using hold_type = typename instantiate_list<hold_normal,typename P::ezpz_output>::type;
 			hold_type hold;
 			hold.apply([&](auto&...args){
-				parse(ctx, p, args...);
-				if constexpr( sizeof...(args) == 1 ){
-					assign_first(std::optional{args...},ARGS...);
-				} else {
-					assign_first(std::optional{std::tuple{args...}},ARGS...);
+				if(parse(ctx, p, args...)){
+					if constexpr( sizeof...(args) == 1 ){
+						assign_first(std::optional{args...},ARGS...);
+					} else {
+						assign_first(std::optional{std::tuple{args...}},ARGS...);
+					}
 				}
 			});
 		}
