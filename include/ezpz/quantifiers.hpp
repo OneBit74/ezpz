@@ -8,7 +8,7 @@ namespace ezpz{
 template<parser T>
 struct plus_p {
 	using ezpz_output = typename T::ezpz_output;
-	using ezpz_prop = TLIST<always_true>;
+	using ezpz_prop = TLIST<>;
 
 	static_assert(!get_prop_tag<T>::type::template contains<always_true>,
 			"[ezpz][plus_p] inner parser never fails. "
