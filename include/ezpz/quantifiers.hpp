@@ -227,10 +227,6 @@ template<parser P, int count = -1>
 struct max_p : public max_p_base_helper<P,count>{
 	using base = max_p_base_helper<P,count>;
 
-	static_assert(!get_prop_tag<P>::type::template contains<always_true>,
-			"[ezpz][any_p] inner parser never fails."
-			" This is equivalent to a while true statement");
-
 	max_p(auto&& p) : base(std::forward<P>(p),constant_int_holder<count>{}) {
 		static_assert(count != -1);
 	}
@@ -283,6 +279,11 @@ using min_p_base_helper = typename t_if_else<
 template<parser P, int count = -1>
 struct min_p : public min_p_base_helper<P,count>{
 	using base = min_p_base_helper<P,count>;
+
+	static_assert(!get_prop_tag<P>::type::template contains<always_true>,
+			"[ezpz][min_p] inner parser never fails."
+			" This is equivalent to a while true statement");
+
 	min_p(auto&& p) : base(std::forward<P>(p),constant_int_holder<count>{}) {
 		static_assert(count != -1);
 	}
