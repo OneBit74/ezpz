@@ -211,7 +211,7 @@ struct or_helper {
 	/* print_types<NL1,NL2,merge,non_empty,non_dup,L1,L2,type> asd; */
 };
 
-template<typename...A, typename...B> 
+template<typename...A, typename...B> requires (!std::same_as<TLIST<A...>,TLIST<B...>>)
 struct or_helper<TLIST<std::variant<A...>>,TLIST<std::variant<B...>>> {
 	using type = TLIST<typename instantiate_list<std::variant,typename dedup<TLIST<A...,B...>>::type>::type>;
 };
@@ -440,7 +440,7 @@ struct rpo {
 	template<parser T>
 	void operator=(T&& p){
 		using P_t = std::decay_t<T>;
-		static_assert(std::same_as<typename P_t::ezpz_output, ezpz_output>, "unexpected return-types of right-hand-side parser to ezpz::rpo");
+		static_assert(std::same_as<typename P_t::ezpz_output, ezpz_output>, "[ezpz][rpo] unexpected return-types of right-hand-side parser to ezpz::rpo");
 		f = [p = std::forward<P_t>(p)](context_t& ctx, auto&...up_args) mutable -> bool {
 			return parse(ctx,p,up_args...);
 		};
