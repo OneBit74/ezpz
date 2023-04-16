@@ -386,7 +386,7 @@ auto merge(P&& p){
 	return merge_p<P_t>(std::forward<P_t>(p));
 }
 
-template<typename T, parser P, typename F>
+template<typename T, parser P, typename F> 
 struct agg_into_p {
 	using ezpz_output = TLIST<T>;
 	using ezpz_prop = typename get_prop_tag<P>::type;

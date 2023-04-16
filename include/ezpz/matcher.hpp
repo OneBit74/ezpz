@@ -234,6 +234,19 @@ namespace ezpz{
 	template<typename integer>
 	auto& decimal = number<integer,10>;
 
+	inline struct capital_p {
+		using ezpz_output = TLIST<char>;
+
+		static constexpr auto _description = "capital letter";
+		bool _parse(basic_context_c auto& ctx, char& c){
+			if(ctx.done())return false;
+			c = ctx.token();
+			auto ret = isupper(ctx.token());
+			ctx.advance();
+			return ret;
+		}
+	} capital;
+
 	inline struct alpha_p {
 		using ezpz_output = TLIST<char>;
 
