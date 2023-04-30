@@ -162,6 +162,15 @@ TEST(helper, agg_into_vector){
 	std::vector<int> expected{1,2,3,4,5};
 	EXPECT_EQ(result,expected);
 }
+TEST(helper, list_elem){
+	auto element = list_elem(decimal<int>);
+	auto list = merge(element+ any(ws+","+ws+element));
+
+	std::vector<int> result;
+	EXPECT_TRUE(parse("1,2 , 3, 4 ,5",list,result));
+	std::vector<int> expected{1,2,3,4,5};
+	EXPECT_EQ(result,expected);
+}
 TEST(helper, agg_unsuccessful_parse_means_no_cb_call){
 	int i = 0;
 	EXPECT_FALSE(parse("",agg(decimal<int>,[&](int&,int){i = 2;})));
