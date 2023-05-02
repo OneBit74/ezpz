@@ -459,7 +459,10 @@ auto agg_into(P&& p, F&& f){
 template<template<typename...> class LIST_T = std::vector, parser P>
 auto list_elem(P&& p) {
 	using P_t = std::decay_t<decltype(p)>;
-	using val_t = typename P_t::ezpz_output::type;
+	constexpr bool multiple_returns = (P_t::ezpz_output::size) > 1;
+	using val_t = typename t_if_else<multiple_returns, 
+		  typename apply_list<std::tuple,typename P_t::ezpz_output>::type,
+		  typename P_t::ezpz_output::type>::type;
 	return agg_into<LIST_T<val_t>>(p, [](LIST_T<val_t>& list, auto&&...vals){
 		list.emplace_back(vals...);
 	});

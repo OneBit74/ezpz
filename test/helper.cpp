@@ -171,6 +171,15 @@ TEST(helper, list_elem){
 	std::vector<int> expected{1,2,3,4,5};
 	EXPECT_EQ(result,expected);
 }
+TEST(helper, list_elem_tuple){
+	auto element = list_elem("("+decimal<int>+","+decimal<int>+")");
+	auto list = merge(element+ any(ws+","+ws+element));
+
+	std::vector<std::tuple<int,int>> result;
+	EXPECT_TRUE(parse("(1,2) , (3,4) ,(5,6)",list,result));
+	std::vector<std::tuple<int,int>> expected{{1,2},{3,4},{5,6}};
+	EXPECT_EQ(result,expected);
+}
 TEST(helper, agg_unsuccessful_parse_means_no_cb_call){
 	int i = 0;
 	EXPECT_FALSE(parse("",agg(decimal<int>,[&](int&,int){i = 2;})));
