@@ -184,7 +184,6 @@ struct or_helper {
 				TLIST<typename apply_list<std::variant,non_dup>::type>
 			>::type
 		>::type;
-	/* print_types<NL1,NL2,merge,non_empty,non_dup,L1,L2,type> asd; */
 };
 
 template<typename...A, typename...B> requires (!std::same_as<TLIST<A...>,TLIST<B...>>)
@@ -208,35 +207,6 @@ template<typename T>
 struct or_helper<T,T> {
 	using type = T;
 };
-
-/* template<typename A..., typename B> */
-/* struct variant_merge<std::variant<A...>,std::variant<B...>> { */
-	
-/* }; */
-/* template<typename...A, typename...B> */ 
-/* struct or_helper<TLIST<A...>,TLIST<B...>> { */
-/* 	using TL = typename t_if_else<sizeof...(A) == 1, */
-/* 			typename TLIST<A...>::type, */
-/* 			std::tuple<A...> */
-/* 		>::type; */
-/* 	using TR = typename t_if_else<sizeof...(B) == 1, */
-/* 			typename TLIST<B...>::type, */
-/* 			std::tuple<B...> */
-/* 		>::type; */
-/* 	using VM = typename variant_merge<TL,TR>::type; */
-/* 	using type = typename t_if_else<std::is_same_v<TL,TR>, */
-/* 		  TLIST<TL>, */
-/* 		  typename t_if_else<!std::is_same */
-
-/* }; */
-
-
-/* static_assert(std::same_as<or_helper<TLIST<EOL>,TLIST<EOL>>::type,TLIST<EOL>>); */
-/* static_assert(std::same_as<or_helper<TLIST<int>,TLIST<EOL>>::type,TLIST<std::optional<int>>>); */
-/* static_assert(std::same_as<or_helper<TLIST<EOL>,TLIST<int>>::type,TLIST<std::optional<int>>>); */
-/* static_assert(std::same_as<or_helper<TLIST<int>,TLIST<int>>::type,TLIST<int>>); */
-/* static_assert(std::same_as<or_helper<TLIST<int>,TLIST<float>>::type,TLIST<std::variant<int,float>>>); */
-/* static_assert(std::same_as<or_helper<TLIST<std::variant<int,float>>,TLIST<float>>::type,TLIST<std::variant<int,float>>>); */
 
 auto& get_first(auto& first, auto&...){
 	return first;
@@ -264,44 +234,42 @@ struct or_p {
 	template<typename T,bool undo>
 	auto attempt(T& t, auto& ctx, auto&...ret) -> bool {
 		using parser_t = std::decay_t<T>;
-		if constexpr( rparser<parser_t> ){
-			if constexpr (ezpz_output::size == 1){
-				using h_t = typename apply_list<hold_normal,typename parser_t::ezpz_output>::type;
-				using ret_type = typename ezpz_output::type;
-
-				h_t h;
-				auto success = h.apply([&](auto&...args){
-					if constexpr(undo){
-						return parse_or_undo(ctx,t,args...);
-					}else{
-						return parse(ctx,t,args...);
-					}
-				});
-				if(success){
-					get_first(ret...) = h.apply([](auto&...args) -> ret_type{
-						if constexpr (sizeof...(args) == 1 && is_variant<typename parser_t::ezpz_output::type>) {
-							return std::visit([](auto&& inner){
-									return ret_type{std::forward<std::decay_t<decltype(inner)>>(inner)};
-							}, std::move(args)...);
-						}else {
-							return ret_type{std::move(args)...};
-						}
-					});
-				}
-				return success;
+		if constexpr( std::is_same_v<ezpz_output,typename parser_t::ezpz_output>){
+			if constexpr(undo){
+				return parse_or_undo(ctx,t,ret...);
 			}else{
-				if constexpr(undo){
-					return parse_or_undo(ctx,t,ret...);
-				}else{
-					return parse(ctx,t,ret...);
-				}
+				return parse(ctx,t,ret...);
 			}
-		}else{
+		} else if constexpr(!rparser<parser_t>){
 			if constexpr(undo){
 				return parse_or_undo(ctx,t);
 			}else{
 				return parse(ctx,t);
 			}
+		} else {
+			using h_t = typename apply_list<hold_normal,typename parser_t::ezpz_output>::type;
+			using ret_type = typename ezpz_output::type;
+
+			h_t h;
+			auto success = h.apply([&](auto&...args){
+				if constexpr(undo){
+					return parse_or_undo(ctx,t,args...);
+				}else{
+					return parse(ctx,t,args...);
+				}
+			});
+			if(success){
+				get_first(ret...) = h.apply([](auto&...args) -> ret_type{
+					if constexpr (sizeof...(args) == 1 && is_variant<typename parser_t::ezpz_output::type>) {
+						return std::visit([](auto&& inner){
+								return ret_type{std::move(inner)};
+						}, std::move(args)...);
+					}else {
+						return ret_type{std::move(args)...};
+					}
+				});
+			}
+			return success;
 		}
 	}
 	bool _parse(auto& ctx, auto&... ret){
@@ -408,10 +376,6 @@ struct rpo {
 	explicit rpo(F&& f) {
 		this->f = std::forward<F>(f);
 	}
-	/* template<parser T> */ 
-	/* explicit rpo(T&& f) { */
-	/* 	operator=(std::forward<std::decay_t<T>>(f)); */
-	/* } */
 
 	template<parser T>
 	void operator=(T&& p){
