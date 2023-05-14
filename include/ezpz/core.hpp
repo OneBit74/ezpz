@@ -69,21 +69,6 @@ struct consume_p {
 	}
 };
 
-template<typename...ARGS>
-struct takefront_and_call{
-	static auto call(auto&& target, ARGS&&...args, auto&&...){
-		return target(args...);
-	}
-};
-
-template<typename...ARGS>
-struct takeback_and_call {
-	static auto call(auto&& target, ARGS&&..., auto&&...args){
-		return target(args...);
-	}
-};
-
-
 
 template<parser LHS, parser RHS>
 struct and_p {
@@ -116,21 +101,12 @@ struct and_p {
 	
 	template<typename...ARGS>
 	bool _parse(auto& ctx, ARGS&...args){
-		using L = TLIST<ARGS...>;
-		auto cb_lhs = [&](auto&...few_args){
-				return parse(ctx,lhs.get(),few_args...);
+		auto inv = [&]<typename...L, typename...R>(TLIST<L...>, TLIST<R...>) {
+			return [&](L&...l_args, R&...r_args){
+				return parse(ctx, lhs.get(), l_args...) && parse(ctx,rhs.get(),r_args...);
+			};
 		};
-		auto cb_rhs = [&](auto&...few_args){
-				return parse(ctx,rhs.get(),few_args...);
-		};
-
-		using front_t = typename instantiate_list<takefront_and_call, typename get_ref_list<L_ARGS>::type>::type;
-		bool ret = front_t::call(cb_lhs,args...);
-		if(!ret)return false;
-
-		using back_t = typename instantiate_list<takeback_and_call, typename get_ref_list<L_ARGS>::type>::type;
-		ret = back_t::call(cb_rhs,args...);
-		return ret;
+		return inv(L_ARGS(), R_ARGS())(args...);
 	}
 
 };
