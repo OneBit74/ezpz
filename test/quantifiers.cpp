@@ -69,6 +69,20 @@ TEST(quantifiers,optional){
 		EXPECT_EQ(std::get<1>(*res),456);
 	}
 }
+TEST(quantifiers,optional_of_non_copyable){
+	struct cant_copy_t {
+		cant_copy_t() = default;
+		cant_copy_t(cant_copy_t&&) = default;
+		cant_copy_t(const cant_copy_t&) = delete;
+		cant_copy_t& operator=(cant_copy_t&&) = default;
+	};
+
+	auto p = " "_p * [](){return cant_copy_t{};};
+	std::optional<cant_copy_t> r1;
+	std::optional<std::tuple<cant_copy_t, cant_copy_t>> r2;
+	EXPECT_TRUE(parse(" ", optional(p), r1));
+	EXPECT_TRUE(parse("  ", optional(p+p), r2));
+}
 TEST(quantifiers,peek){
 	EXPECT_TRUE(parse("a",notf("b"_p)));
 	EXPECT_FALSE(parse("a",notf("a"_p)));

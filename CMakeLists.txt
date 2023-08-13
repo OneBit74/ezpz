@@ -54,10 +54,10 @@ set(examples
 )
 
 
-add_executable(stest ${test_src})
-add_test(unittests stest)
-add_dependencies(stest rapidcheck)
-target_link_libraries(stest ${rapidcheck_BINARY_DIR}/librapidcheck.a)
+add_executable(ezpz_test ${test_src})
+add_test(unittests ezpz_test)
+add_dependencies(ezpz_test rapidcheck)
+target_link_libraries(ezpz_test ${rapidcheck_BINARY_DIR}/librapidcheck.a)
 
 foreach(example ${examples})
 	add_executable(${example} examples/${example}.cpp)

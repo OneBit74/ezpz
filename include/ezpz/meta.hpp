@@ -396,7 +396,8 @@ decltype(auto) get(auto&& arg, auto&&...ARGS){
 }
 template<typename T1, typename...REST>
 auto assign_first(T1&& src, T1& dst, REST&&...){
-	dst = std::forward<T1>(src);
+	using TT = std::decay_t<T1>;
+	dst = std::forward<TT>(src);
 }
 template<typename T1, typename...REST>
 auto assign_last(T1&& src, REST&&..., T1& dst){

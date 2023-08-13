@@ -104,9 +104,9 @@ struct optional_p {
 			hold.apply([&](auto&...args){
 				if(parse(ctx, p, args...)){
 					if constexpr( sizeof...(args) == 1 ){
-						assign_first(std::optional{args...},ARGS...);
+						assign_first(std::optional{std::move(args)...},ARGS...);
 					} else {
-						assign_first(std::optional{std::tuple{args...}},ARGS...);
+						assign_first(std::optional{std::tuple{std::move(args)...}},ARGS...);
 					}
 				}
 			});
