@@ -371,7 +371,9 @@ struct merge_p {
 	static_assert(P::ezpz_output::size > ezpz_output::size, "[ezpz][merge_p] merged parser does not contain any duplicate types, therefore no outputs can be merged");
 
 	[[no_unique_address]] P p;
-	merge_p(auto&& p) : p(std::forward<P>(p)) {}
+	merge_p(const merge_p&) = default;
+	merge_p(merge_p&&) = default;
+	merge_p(P&& p) : p(std::forward<P>(p)) {}
 
 	bool _parse(auto& ctx, auto&...ARGS) {
 		return [&]<size_t...Is>(idx_seq<Is...>){
@@ -419,7 +421,7 @@ struct agg_p {
 	bool _parse(auto& ctx, auto&...ARGS){
 		using hold_t = typename apply_list<hold_normal, typename P::ezpz_output>::type;
 		hold_t hold;
-		using result = std::invoke_result<decltype(f),decltype(ARGS)...,decltype(ARGS)...>;
+		using result = std::invoke_result<decltype(f),decltype(ARGS)...,decltype(std::move(ARGS))...>;
 		if constexpr(!std::same_as<typename result::type, void>){
 			static_assert(sizeof...(ARGS) == 1, "[ezpz][agg] aggregation with a returning callback can only aggregate to a single output, but the parser has multiple outputs. Use parameters instead.");
 			static_assert(std::same_as<typename ezpz_output::type, typename result::type>, "[ezpz][agg] return-type of returning aggregation callback must be same as the parser output");
